@@ -72,16 +72,16 @@ Client (React / Postman)
          ▼ port 8080
    [ API Gateway ]
          │
-         ├── /api/v1/auth/**       →  auth-service       :8081
-         ├── /api/v1/providers/**  →  provider-service   :8082
-         ├── /api/v1/slots/**      →  schedule-service   :8083
-         ├── /api/v1/appointments/**→ appointment-service:8084
-         ├── /api/v1/payments/**   →  payment-service    :8085
-         ├── /api/v1/reviews/**    →  review-service     :8086
-         ├── /api/v1/notifications/**→ notification-service:8087
-         ├── /api/v1/records/**    →  record-service     :8088
-         ├── /api/v1/admin/**      →  admin-service      :8089
-         └── /api/v1/gateway/**    →  payment-gateway-service:8090
+         ├── /api/v1/auth/**          →  auth-service            :8081
+         ├── /api/v1/providers/**     →  provider-service        :8082
+         ├── /api/v1/slots/**         →  schedule-service        :8083
+         ├── /api/v1/appointments/**  → appointment-service      :8084
+         ├── /api/v1/payments/**      →  payment-service         :8085
+         ├── /api/v1/reviews/**       →  review-service          :8086
+         ├── /api/v1/notifications/** → notification-service     :8087
+         ├── /api/v1/records/**       →  record-service          :8088
+         ├── /api/v1/admin/**         →  admin-service           :8089
+         └── /api/v1/gateway/**       →  payment-gateway-service :8090
 ```
 
 ---
@@ -89,55 +89,55 @@ Client (React / Postman)
 ## 🗺 Architecture Position
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                        MediBook Microservices Platform                       │
-│                                                                              │
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        MediBook Microservices Platform                      │
+│                                                                             │
 │  ┌──────────────────────────────────────────────────────────┐               │
 │  │                   CLIENT LAYER                           │               │
 │  │   React (localhost:3000)  │  Vite (localhost:5173)       │               │
 │  │   Postman / Mobile App    │  Any HTTP client             │               │
 │  └───────────────────────────┬──────────────────────────────┘               │
 │                              │ ALL requests → port 8080                     │
-│                              ▼                                               │
+│                              ▼                                              │
 │  ┌───────────────────────────────────────────────────────────┐              │
 │  │               API GATEWAY  (THIS SERVICE)                 │              │
 │  │                    port: 8080                             │              │
 │  │                                                           │              │
-│  │  ① JwtAuthenticationFilter  (GlobalFilter, order = -1)   │              │
-│  │     • Checks Bearer token on protected paths             │              │
-│  │     • Parses JWT → extracts email, role, userId          │              │
-│  │     • Forwards as X-User-* headers to downstream         │              │
-│  │     • Returns 401 if token missing or invalid            │              │
+│  │  ① JwtAuthenticationFilter  (GlobalFilter, order = -1)    │              │
+│  │     • Checks Bearer token on protected paths              │              │
+│  │     • Parses JWT → extracts email, role, userId           │              │
+│  │     • Forwards as X-User-* headers to downstream          │              │
+│  │     • Returns 401 if token missing or invalid             │              │
 │  │                                                           │              │
 │  │  ② Route Predicates (Path matching)                       │              │
-│  │     • /api/v1/auth/**  → lb://auth-service               │              │
-│  │     • /api/v1/providers/** → lb://provider-service       │              │
-│  │     • ... (10 routes total)                              │              │
+│  │     • /api/v1/auth/**  → lb://auth-service                │              │
+│  │     • /api/v1/providers/** → lb://provider-service        │              │
+│  │     • ... (10 routes total)                               │              │
 │  │                                                           │              │
 │  │  ③ Load Balancing (lb://)                                 │              │
-│  │     • Resolves service hostnames via Eureka              │              │
-│  │     • Distributes load if multiple instances running     │              │
+│  │     • Resolves service hostnames via Eureka               │              │
+│  │     • Distributes load if multiple instances running      │              │
 │  └──────────────┬────────────────────────────────────────────┘              │
-│                 │ registers & discovers services                             │
-│                 ▼                                                            │
+│                 │ registers & discovers services                            │
+│                 ▼                                                           │
 │  ┌──────────────────────────┐                                               │
 │  │   Eureka Server  :8761   │ ← Service Registry                            │
 │  └──────────────────────────┘                                               │
-│                                                                              │
+│                                                                             │
 │  DOWNSTREAM MICROSERVICES (each on its own port + own MySQL DB)             │
-│  ┌────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌───────────────┐ │
-│  │auth-service│ │provider-service │ │schedule-service │ │appt-service   │ │
-│  │  :8081     │ │  :8082          │ │  :8083          │ │  :8084        │ │
-│  └────────────┘ └─────────────────┘ └─────────────────┘ └───────────────┘ │
-│  ┌─────────────┐ ┌──────────────┐ ┌──────────────────┐ ┌───────────────┐  │
-│  │pay-service  │ │review-service│ │notification-svc  │ │record-service │  │
-│  │  :8085      │ │  :8086       │ │  :8087           │ │  :8088        │  │
-│  └─────────────┘ └──────────────┘ └──────────────────┘ └───────────────┘  │
+│  ┌────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌───────────────┐   │
+│  │auth-service│ │provider-service │ │schedule-service │ │appt-service   │   │
+│  │  :8081     │ │  :8082          │ │  :8083          │ │  :8084        │   │
+│  └────────────┘ └─────────────────┘ └─────────────────┘ └───────────────┘   │
+│  ┌─────────────┐ ┌──────────────┐ ┌──────────────────┐ ┌───────────────┐    │
+│  │pay-service  │ │review-service│ │notification-svc  │ │record-service │    │
+│  │  :8085      │ │  :8086       │ │  :8087           │ │  :8088        │    │
+│  └─────────────┘ └──────────────┘ └──────────────────┘ └───────────────┘    │
 │  ┌──────────────┐ ┌──────────────────────┐                                  │
 │  │admin-service │ │payment-gateway-svc   │                                  │
 │  │  :8089       │ │  :8090               │                                  │
 │  └──────────────┘ └──────────────────────┘                                  │
-└──────────────────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -253,18 +253,18 @@ The `JwtAuthenticationFilter` implements `GlobalFilter` with `Ordered.getOrder()
 Incoming Request to Gateway
           │
           ▼
-┌─────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────┐
 │           JwtAuthenticationFilter                    │
 │                                                      │
 │  Step 1: Extract request path                        │
-│          String path = request.getURI().getPath()   │
+│          String path = request.getURI().getPath()    │
 │                                                      │
 │  Step 2: Check if path is PUBLIC                     │
 │          PUBLIC_PATHS.stream()                       │
 │              .anyMatch(p -> path.startsWith(p))      │
 │                                                      │
 │  Step 3a: PUBLIC PATH                                │
-│           → chain.filter(exchange)   ✅ pass through │
+│           → chain.filter(exchange)  ✅ pass through │
 │                                                      │
 │  Step 3b: PROTECTED PATH                             │
 │           → Read Authorization header                │
@@ -289,7 +289,7 @@ Incoming Request to Gateway
 │          → log.error(...)                            │
 │          → response.setStatusCode(401)               │
 │          → response.setComplete()  ❌ reject         │
-└─────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────┘
           │
           ▼
    Downstream Microservice
