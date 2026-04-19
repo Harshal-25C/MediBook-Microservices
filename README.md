@@ -11,10 +11,6 @@
 ╚═╝     ╚═╝╚══════╝╚═════╝ ╚═╝╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝
 ```
 
-♨️🧑‍💻A Spring Boot microservices backend for MediBook, implementing JWT-based authentication, role-based access control, appointment lifecycle management, provider scheduling, payment integration, and electronic medical records with RESTful APIs🔥 and scalable architecture.🌿💡
-
----
-
 ### `auth-service` — Security Gateway for MediBook Platform
 
 *Book Smarter. Heal Faster. Care Better.*
