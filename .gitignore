@@ -1,0 +1,7 @@
+/.metadata/
+
+# Environment files
+.env
+
+# Spring profiles
+**/application-dev.yml
