@@ -1,17 +1,17 @@
-# 🏥 MediBook — Auth Service
+# 🏥 MediBook — API Gateway
 
 <div align="center">
 
 ```
-███╗   ███╗███████╗██████╗ ██╗██████╗  ██████╗  ██████╗ ██╗  ██╗
-████╗ ████║██╔════╝██╔══██╗██║██╔══██╗██╔═══██╗██╔═══██╗██║ ██╔╝
-██╔████╔██║█████╗  ██║  ██║██║██████╔╝██║   ██║██║   ██║█████╔╝
-██║╚██╔╝██║██╔══╝  ██║  ██║██║██╔══██╗██║   ██║██║   ██║██╔═██╗
-██║ ╚═╝ ██║███████╗██████╔╝██║██████╔╝╚██████╔╝╚██████╔╝██║  ██╗
-╚═╝     ╚═╝╚══════╝╚═════╝ ╚═╝╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═╝
+ █████╗ ██████╗ ██╗     ██████╗  █████╗ ████████╗███████╗██╗    ██╗ █████╗ ██╗   ██╗
+██╔══██╗██╔══██╗██║    ██╔════╝ ██╔══██╗╚══██╔══╝██╔════╝██║    ██║██╔══██╗╚██╗ ██╔╝
+███████║██████╔╝██║    ██║  ███╗███████║   ██║   █████╗  ██║ █╗ ██║███████║ ╚████╔╝
+██╔══██║██╔═══╝ ██║    ██║   ██║██╔══██║   ██║   ██╔══╝  ██║███╗██║██╔══██║  ╚██╔╝
+██║  ██║██║     ██║    ╚██████╔╝██║  ██║   ██║   ███████╗╚███╔███╔╝██║  ██║   ██║
+╚═╝  ╚═╝╚═╝     ╚═╝     ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝ ╚══╝╚══╝ ╚═╝  ╚═╝   ╚═╝
 ```
 
-### `auth-service` — Security Gateway for MediBook Platform
+### `api-gateway` — Single Entry Point for the MediBook Platform
 
 *Book Smarter. Heal Faster. Care Better.*
 
@@ -19,15 +19,15 @@
 
 ![Java](https://img.shields.io/badge/Java-17-orange?style=for-the-badge&logo=openjdk)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2.0-brightgreen?style=for-the-badge&logo=springboot)
-![Spring Security](https://img.shields.io/badge/Spring_Security-6-green?style=for-the-badge&logo=springsecurity)
-![MySQL](https://img.shields.io/badge/MySQL-8.0-blue?style=for-the-badge&logo=mysql)
-![Redis](https://img.shields.io/badge/Redis-7-red?style=for-the-badge&logo=redis)
+![Spring Cloud Gateway](https://img.shields.io/badge/Spring_Cloud_Gateway-2023.0.0-6DB33F?style=for-the-badge&logo=spring)
+![WebFlux](https://img.shields.io/badge/WebFlux-Reactive-blueviolet?style=for-the-badge&logo=spring)
+![Eureka](https://img.shields.io/badge/Eureka_Client-Netflix-red?style=for-the-badge&logo=netflix)
 ![JWT](https://img.shields.io/badge/JWT-0.11.5-black?style=for-the-badge&logo=jsonwebtokens)
-![Swagger](https://img.shields.io/badge/Swagger-OpenAPI_3.0-85EA2D?style=for-the-badge&logo=swagger)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)
+![Lombok](https://img.shields.io/badge/Lombok-1.18.30-pink?style=for-the-badge)
 ![Maven](https://img.shields.io/badge/Maven-3.9+-C71A36?style=for-the-badge&logo=apachemaven)
-![Port](https://img.shields.io/badge/Port-8081-purple?style=for-the-badge)
-![Branch](https://img.shields.io/badge/Branch-feature/auth--service-yellow?style=for-the-badge&logo=git)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)
+![Port](https://img.shields.io/badge/Port-8080-purple?style=for-the-badge)
+![Branch](https://img.shields.io/badge/Branch-feature/api--gateway-yellow?style=for-the-badge&logo=git)
 
 </div>
 
@@ -40,66 +40,104 @@
 - [Tech Stack](#-tech-stack)
 - [Project Structure](#-project-structure)
 - [Features](#-features)
+- [Route Table](#-route-table)
+- [JWT Filter — How It Works](#-jwt-filter--how-it-works)
+- [Public vs Protected Paths](#-public-vs-protected-paths)
+- [Downstream Headers Forwarded](#-downstream-headers-forwarded)
+- [CORS Configuration](#-cors-configuration)
 - [Prerequisites](#-prerequisites)
-- [Infrastructure Setup](#-infrastructure-setup)
 - [Environment Variables](#-environment-variables)
 - [How to Run](#-how-to-run)
-- [Registration Flow (OTP)](#-registration-flow-otp)
-- [API Reference](#-api-reference)
-- [Postman Testing Guide](#-postman-testing-guide)
-- [Security Architecture](#-security-architecture)
-- [Database Schema](#-database-schema)
-- [Redis Key Design](#-redis-key-design)
-- [Error Responses](#-error-responses)
-- [Swagger UI](#-swagger-ui)
+- [Startup Order](#-startup-order)
+- [Postman Testing via Gateway](#-postman-testing-via-gateway)
+- [Actuator Endpoints](#-actuator-endpoints)
 - [Common Issues & Fixes](#-common-issues--fixes)
 
 ---
 
 ## 📖 Overview
 
-The **Auth Service** is the **security gateway** of the MediBook Online Appointment Booking Platform. Every request that touches protected resources on the platform is validated through this service's JWT token logic.
+The **API Gateway** is the **single entry point** for the entire MediBook platform. Every request from any client — whether a React frontend, mobile app, or Postman — hits port `8080` first. The gateway then:
 
-It handles the complete user identity lifecycle:
+1. **Validates the JWT token** on protected routes using its own `JwtAuthenticationFilter`
+2. **Routes the request** to the correct downstream microservice using Eureka-based load balancing
+3. **Forwards user context** (`X-User-Email`, `X-User-Role`, `X-User-Id`) as headers to downstream services so they know who is calling
+4. **Handles CORS** globally so the React frontend can communicate without browser errors
+
+No client should ever call a microservice directly on its own port. Everything goes through `localhost:8080`.
 
 ```
-Guest visits → Sends OTP → Verifies Email → Registers → Logs In → Gets JWT → Accesses Platform
+Client (React / Postman)
+         │
+         ▼ port 8080
+   [ API Gateway ]
+         │
+         ├── /api/v1/auth/**       →  auth-service       :8081
+         ├── /api/v1/providers/**  →  provider-service   :8082
+         ├── /api/v1/slots/**      →  schedule-service   :8083
+         ├── /api/v1/appointments/**→ appointment-service:8084
+         ├── /api/v1/payments/**   →  payment-service    :8085
+         ├── /api/v1/reviews/**    →  review-service     :8086
+         ├── /api/v1/notifications/**→ notification-service:8087
+         ├── /api/v1/records/**    →  record-service     :8088
+         ├── /api/v1/admin/**      →  admin-service      :8089
+         └── /api/v1/gateway/**    →  payment-gateway-service:8090
 ```
-
-It supports three user roles — **Patient**, **Provider**, and **Admin** — each with distinct permissions enforced via Spring Security's role-based access control.
 
 ---
 
 ## 🗺 Architecture Position
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     MediBook Microservices                          │
-│                                                                     │
-│   React Client / Postman                                            │
-│         │                                                           │
-│         ▼                                                           │
-│   ┌──────────────┐   port 8080                                      │
-│   │  API Gateway │ ◄──────── All external traffic enters here       │
-│   └──────┬───────┘                                                  │
-│          │  routes /api/v1/auth/**                                  │
-│          ▼                                                           │
-│   ┌──────────────┐   port 8081   ┌───────────┐                     │
-│   │ auth-service │◄─────────────►│  MySQL    │ auth_db             │
-│   │  (THIS ONE)  │               └───────────┘                     │
-│   └──────┬───────┘                                                  │
-│          │               ┌───────────┐                              │
-│          └──────────────►│   Redis   │ OTP + verified email store  │
-│                          └───────────┘                              │
-│          │               ┌───────────┐                              │
-│          └──────────────►│  Gmail    │ OTP email delivery           │
-│                          │  SMTP     │                              │
-│                          └───────────┘                              │
-│                                                                     │
-│   ┌────────────────┐   port 8761                                    │
-│   │  Eureka Server │ ◄─── auth-service registers here              │
-│   └────────────────┘                                                │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                        MediBook Microservices Platform                       │
+│                                                                              │
+│  ┌──────────────────────────────────────────────────────────┐               │
+│  │                   CLIENT LAYER                           │               │
+│  │   React (localhost:3000)  │  Vite (localhost:5173)       │               │
+│  │   Postman / Mobile App    │  Any HTTP client             │               │
+│  └───────────────────────────┬──────────────────────────────┘               │
+│                              │ ALL requests → port 8080                     │
+│                              ▼                                               │
+│  ┌───────────────────────────────────────────────────────────┐              │
+│  │               API GATEWAY  (THIS SERVICE)                 │              │
+│  │                    port: 8080                             │              │
+│  │                                                           │              │
+│  │  ① JwtAuthenticationFilter  (GlobalFilter, order = -1)   │              │
+│  │     • Checks Bearer token on protected paths             │              │
+│  │     • Parses JWT → extracts email, role, userId          │              │
+│  │     • Forwards as X-User-* headers to downstream         │              │
+│  │     • Returns 401 if token missing or invalid            │              │
+│  │                                                           │              │
+│  │  ② Route Predicates (Path matching)                       │              │
+│  │     • /api/v1/auth/**  → lb://auth-service               │              │
+│  │     • /api/v1/providers/** → lb://provider-service       │              │
+│  │     • ... (10 routes total)                              │              │
+│  │                                                           │              │
+│  │  ③ Load Balancing (lb://)                                 │              │
+│  │     • Resolves service hostnames via Eureka              │              │
+│  │     • Distributes load if multiple instances running     │              │
+│  └──────────────┬────────────────────────────────────────────┘              │
+│                 │ registers & discovers services                             │
+│                 ▼                                                            │
+│  ┌──────────────────────────┐                                               │
+│  │   Eureka Server  :8761   │ ← Service Registry                            │
+│  └──────────────────────────┘                                               │
+│                                                                              │
+│  DOWNSTREAM MICROSERVICES (each on its own port + own MySQL DB)             │
+│  ┌────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌───────────────┐ │
+│  │auth-service│ │provider-service │ │schedule-service │ │appt-service   │ │
+│  │  :8081     │ │  :8082          │ │  :8083          │ │  :8084        │ │
+│  └────────────┘ └─────────────────┘ └─────────────────┘ └───────────────┘ │
+│  ┌─────────────┐ ┌──────────────┐ ┌──────────────────┐ ┌───────────────┐  │
+│  │pay-service  │ │review-service│ │notification-svc  │ │record-service │  │
+│  │  :8085      │ │  :8086       │ │  :8087           │ │  :8088        │  │
+│  └─────────────┘ └──────────────┘ └──────────────────┘ └───────────────┘  │
+│  ┌──────────────┐ ┌──────────────────────┐                                  │
+│  │admin-service │ │payment-gateway-svc   │                                  │
+│  │  :8089       │ │  :8090               │                                  │
+│  └──────────────┘ └──────────────────────┘                                  │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -110,301 +148,304 @@ It supports three user roles — **Patient**, **Provider**, and **Admin** — ea
 |-------|-----------|---------|---------|
 | **Language** | Java | 17 | Core language |
 | **Framework** | Spring Boot | 3.2.0 | Application framework |
-| **Security** | Spring Security | 6 | Authentication & authorization |
-| **Authentication** | JWT (jjwt) | 0.11.5 | Stateless token-based auth |
-| **Social Login** | Spring OAuth2 Client | 3.2.0 | Google & GitHub login |
-| **Database** | MySQL | 8.0 | Persistent user storage |
-| **ORM** | Spring Data JPA + Hibernate | 6.3.1 | Database abstraction |
-| **Cache/OTP Store** | Redis | 7 | OTP storage + email verification flags |
-| **Email** | JavaMailSender (SMTP) | — | OTP delivery via Gmail |
-| **Scheduling** | Quartz Scheduler | 2.3.2 | Background job support |
-| **API Docs** | SpringDoc OpenAPI | 2.5.0 | Swagger UI at `/swagger-ui.html` |
+| **Gateway** | Spring Cloud Gateway | 2023.0.0 | Reactive routing + filtering |
+| **Reactive Runtime** | Project Reactor (WebFlux) | — | Non-blocking I/O — **NOT Servlet-based** |
+| **Service Discovery** | Spring Cloud Netflix Eureka Client | 2023.0.0 | Resolves `lb://service-name` to real IP:port |
+| **Token Validation** | JWT (jjwt) | 0.11.5 | Parse + validate Bearer tokens at gateway level |
+| **Boilerplate** | Lombok | 1.18.30 | `@Slf4j` logging |
+| **Monitoring** | Spring Boot Actuator | 3.2.0 | `/actuator/health`, `/actuator/gateway` |
 | **Build** | Maven | 3.9+ | Dependency management |
-| **Dev Tools** | Spring DevTools | — | Hot reload during development |
-| **Boilerplate** | Lombok | 1.18.30 | Reduce boilerplate code |
-| **Service Discovery** | Eureka Client | 2023.0.3 | Register with Eureka Server |
-| **Monitoring** | Spring Actuator | — | Health, info, metrics endpoints |
+
+> ⚠️ **Important:** Spring Cloud Gateway is built on **Spring WebFlux (Reactive)**, NOT Spring Web (Servlet). This means you **cannot** add `spring-boot-starter-web` to this module — it will cause a startup conflict.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-auth-service/
+api-gateway/
 │
-├── 📄 pom.xml                                    ← Maven dependencies
+├── 📄 pom.xml                                      ← Maven dependencies
 │
 └── src/
     ├── main/
-    │   ├── java/com/medibook/auth/
+    │   ├── java/com/medibook/gateway/
     │   │   │
-    │   │   ├── 🚀 AuthServiceApplication.java     ← Spring Boot entry point
+    │   │   ├── 🚀 ApiGatewayApplication.java        ← Spring Boot entry point
+    │   │   │      @SpringBootApplication
+    │   │   │      @EnableDiscoveryClient             ← registers with Eureka
     │   │   │
-    │   │   ├── config/                            ← Security & filter configuration
-    │   │   │   ├── SecurityConfig.java            ← Spring Security filter chain
-    │   │   │   ├── JwtAuthenticationFilter.java   ← JWT validation per-request filter
-    │   │   │   └── CustomUserDetailsService.java  ← Loads user from DB for Spring Security
-    │   │   │
-    │   │   ├── dto/
-    │   │   │   ├── request/                       ← Incoming request bodies
-    │   │   │   │   ├── RegisterRequest.java        ← fullName, email, password, phone, role
-    │   │   │   │   ├── LoginRequest.java           ← email, password
-    │   │   │   │   ├── OtpRequest.java             ← email (for sending OTP)
-    │   │   │   │   ├── OtpVerifyRequest.java       ← email + otp
-    │   │   │   │   ├── UpdateProfileRequest.java   ← fullName, phone, profilePicUrl
-    │   │   │   │   ├── ChangePasswordRequest.java  ← oldPassword, newPassword
-    │   │   │   │   └── DeleteAccountOtpRequest.java← otp (for account deletion)
-    │   │   │   │
-    │   │   │   └── response/                      ← Outgoing response bodies
-    │   │   │       ├── AuthResponse.java           ← token, tokenType, email, role, userId
-    │   │   │       └── UserResponse.java           ← userId, fullName, email, phone, role...
-    │   │   │
-    │   │   ├── entity/
-    │   │   │   └── User.java                      ← JPA entity → maps to `users` table
-    │   │   │
-    │   │   ├── exception/
-    │   │   │   ├── GlobalExceptionHandler.java    ← Centralized error handling
-    │   │   │   └── ResourceNotFoundException.java ← 404 exception type
-    │   │   │
-    │   │   ├── repository/
-    │   │   │   └── UserRepository.java            ← Spring Data JPA interface
-    │   │   │
-    │   │   ├── resource/
-    │   │   │   └── AuthResource.java              ← REST Controller (14 endpoints)
-    │   │   │
-    │   │   ├── service/
-    │   │   │   ├── AuthService.java               ← Business contract (interface)
-    │   │   │   ├── OtpService.java                ← OTP contract (interface)
-    │   │   │   └── impl/
-    │   │   │       ├── AuthServiceImpl.java        ← Business logic implementation
-    │   │   │       └── OtpServiceImpl.java         ← Redis OTP + Gmail email logic
-    │   │   │
-    │   │   └── util/
-    │   │       └── JwtUtil.java                   ← JWT generation, extraction, validation
+    │   │   └── filter/
+    │   │       └── JwtAuthenticationFilter.java      ← GlobalFilter, order = -1
+    │   │              Runs BEFORE all route filters
+    │   │              Validates JWT on protected paths
+    │   │              Forwards X-User-* headers downstream
     │   │
     │   └── resources/
-    │       └── application.yml                    ← All config with env var support
+    │       └── application.yml                      ← All routes, CORS, Eureka, JWT config
     │
     └── test/
-        └── java/com/medibook/auth/
-            └── AuthServiceApplicationTests.java   ← Spring context load test
+        └── java/com/medibook/gateway/
+            └── ApiGatewayApplicationTests.java      ← Spring context load test
 ```
 
 ---
 
 ## ✨ Features
 
-### Core Authentication
-- ✅ **OTP-verified Registration** — Email must be verified via OTP before account creation
-- ✅ **JWT Login** — Stateless token-based authentication (24-hour expiry)
-- ✅ **Token Refresh** — Get a new JWT without re-login
-- ✅ **Token Validation** — Any service can validate tokens via `/api/v1/auth/validate`
-- ✅ **Logout** — Session invalidation (Redis blacklist ready)
-
-### User Management
-- ✅ **3 Roles** — `PATIENT`, `PROVIDER`, `ADMIN` with distinct permissions
-- ✅ **Profile View & Update** — fullName, phone, profilePicUrl
-- ✅ **Password Change** — Requires current password verification
-- ✅ **Account Deactivation** — Soft disable (isActive = false)
-
-### Account Deletion
-- ✅ **Self Delete with OTP** — User requests OTP → verifies → account permanently deleted
-- ✅ **Admin Delete** — Admin can delete any Patient or Provider account
-- ✅ **Admin Protection** — Admin accounts cannot be deleted via the admin delete endpoint
+### Routing
+- ✅ **10 microservice routes** — every MediBook service has a dedicated path prefix
+- ✅ **Eureka load-balanced routing** — uses `lb://service-name` so routes survive IP changes
+- ✅ **Auto-discovery** — `discovery.locator.enabled: true` auto-routes any new registered service
+- ✅ **Path preservation** — `StripPrefix=0` keeps the full original path intact when forwarding
 
 ### Security
-- ✅ **BCrypt Password Hashing** — Strength 12
-- ✅ **JWT Filter** — `JwtAuthenticationFilter` runs on every request
-- ✅ **Role-Based Access** — `@PreAuthorize("hasRole('ADMIN')")` on admin endpoints
-- ✅ **Method Security** — `@EnableMethodSecurity` active
-- ✅ **Stateless Session** — `SessionCreationPolicy.STATELESS`
-- ✅ **OAuth2 Ready** — Google and GitHub social login configured
+- ✅ **Global JWT filter** — `JwtAuthenticationFilter` runs at order `-1` (first, before everything)
+- ✅ **Public path whitelist** — OTP, register, login, refresh, provider browse, slot view, actuator, swagger skip JWT check
+- ✅ **401 on missing/invalid token** — returns immediately without forwarding to downstream
+- ✅ **JWT claims forwarding** — injects `X-User-Email`, `X-User-Role`, `X-User-Id` headers for downstream services
+
+### CORS
+- ✅ **Global CORS policy** — configured once at gateway, applies to all routes
+- ✅ **React frontend support** — `localhost:3000` and `localhost:5173` (Vite) are allowed origins
+- ✅ **All HTTP methods** — GET, POST, PUT, DELETE, OPTIONS all permitted
+- ✅ **Credentials allowed** — `allowCredentials: true` for cookie-based flows
 
 ### Infrastructure
-- ✅ **Redis OTP Store** — 10-minute TTL, one-time use
-- ✅ **Email Verification Flag** — 30-minute Redis TTL after OTP verified
-- ✅ **Gmail SMTP** — App password-based secure email delivery
-- ✅ **Eureka Discovery** — Registers with service registry (configurable)
-- ✅ **Swagger UI** — Interactive API docs at `/swagger-ui.html`
-- ✅ **Actuator** — Health, info, metrics at `/actuator`
-- ✅ **Global Exception Handler** — Consistent JSON error responses
+- ✅ **Eureka client** — registers itself and fetches registry for service resolution
+- ✅ **Actuator** — exposes health, info, and gateway-specific endpoints
+- ✅ **Environment variable config** — `JWT_SECRET` injected at runtime, never hardcoded
+
+---
+
+## 🗺 Route Table
+
+All routes use `lb://` (load-balanced via Eureka). `StripPrefix=0` means the full path is preserved.
+
+| Route ID | Path Prefix | Downstream Service | Port |
+|----------|------------|-------------------|------|
+| `auth-service` | `/api/v1/auth/**` | `lb://auth-service` | 8081 |
+| `provider-service` | `/api/v1/providers/**` | `lb://provider-service` | 8082 |
+| `schedule-service` | `/api/v1/slots/**` | `lb://schedule-service` | 8083 |
+| `appointment-service` | `/api/v1/appointments/**` | `lb://appointment-service` | 8084 |
+| `payment-service` | `/api/v1/payments/**` | `lb://payment-service` | 8085 |
+| `review-service` | `/api/v1/reviews/**` | `lb://review-service` | 8086 |
+| `notification-service` | `/api/v1/notifications/**` | `lb://notification-service` | 8087 |
+| `record-service` | `/api/v1/records/**` | `lb://record-service` | 8088 |
+| `admin-service` | `/api/v1/admin/**` | `lb://admin-service` | 8089 |
+| `payment-gateway-service` | `/api/v1/gateway/**` | `lb://payment-gateway-service` | 8090 |
+
+**Example routing in action:**
+```
+Client → POST http://localhost:8080/api/v1/auth/login
+Gateway → validates path (public, no JWT needed)
+Gateway → resolves lb://auth-service via Eureka → 127.0.0.1:8081
+Gateway → forwards → POST http://127.0.0.1:8081/api/v1/auth/login
+```
+
+---
+
+## 🔐 JWT Filter — How It Works
+
+The `JwtAuthenticationFilter` implements `GlobalFilter` with `Ordered.getOrder() = -1`, meaning it executes **before any route filter** on every single request.
+
+```
+Incoming Request to Gateway
+          │
+          ▼
+┌─────────────────────────────────────────────────────┐
+│           JwtAuthenticationFilter                    │
+│                                                      │
+│  Step 1: Extract request path                        │
+│          String path = request.getURI().getPath()   │
+│                                                      │
+│  Step 2: Check if path is PUBLIC                     │
+│          PUBLIC_PATHS.stream()                       │
+│              .anyMatch(p -> path.startsWith(p))      │
+│                                                      │
+│  Step 3a: PUBLIC PATH                                │
+│           → chain.filter(exchange)   ✅ pass through │
+│                                                      │
+│  Step 3b: PROTECTED PATH                             │
+│           → Read Authorization header                │
+│           → Check "Bearer " prefix                   │
+│           → If missing/bad → 401 UNAUTHORIZED        │
+│                                                      │
+│  Step 4: Parse JWT token                             │
+│          Jwts.parserBuilder()                        │
+│              .setSigningKey(hmacKey)                 │
+│              .build()                                │
+│              .parseClaimsJws(token)                  │
+│              .getBody()                              │
+│                                                      │
+│  Step 5: On VALID token                              │
+│          → Mutate request: add headers               │
+│            X-User-Email = claims.getSubject()        │
+│            X-User-Role  = claims.get("role")         │
+│            X-User-Id    = claims.get("userId")       │
+│          → chain.filter(mutatedExchange)  ✅ forward │
+│                                                      │
+│  Step 6: On INVALID / EXPIRED token                  │
+│          → log.error(...)                            │
+│          → response.setStatusCode(401)               │
+│          → response.setComplete()  ❌ reject         │
+└─────────────────────────────────────────────────────┘
+          │
+          ▼
+   Downstream Microservice
+   receives request WITH
+   X-User-Email, X-User-Role, X-User-Id headers
+```
+
+---
+
+## 🟢 Public vs Protected Paths
+
+### Public Paths — No JWT Required
+
+These paths start with the prefixes below and are allowed through without any token:
+
+| Path Prefix | Why Public |
+|------------|-----------|
+| `/api/v1/auth/login` | User needs to login to get a token |
+| `/api/v1/auth/register` | New user signup — no token yet |
+| `/api/v1/auth/send-otp` | Pre-registration OTP — no token yet |
+| `/api/v1/auth/verify-otp` | Pre-registration OTP verify — no token yet |
+| `/api/v1/auth/refresh` | Token refresh — old token may be expired |
+| `/api/v1/providers` | Guests can browse providers per PDF requirement |
+| `/api/v1/slots` | Guests can view available slots per PDF requirement |
+| `/actuator` | Health checks — no auth needed |
+| `/swagger-ui` | API docs — no auth needed |
+| `/api-docs` | OpenAPI spec — no auth needed |
+
+### Protected Paths — JWT Required
+
+Everything **not** in the public list above requires a valid `Bearer` token in the `Authorization` header. If the token is missing, malformed, expired, or has an invalid signature, the gateway returns:
+
+```json
+HTTP/1.1 401 Unauthorized
+```
+
+No request body is returned. The downstream service never receives the request.
+
+---
+
+## 📤 Downstream Headers Forwarded
+
+When a valid JWT is presented, the gateway **mutates the request** before forwarding, adding these headers so downstream services know who is calling without re-validating the token:
+
+| Header | Value Source | Example |
+|--------|-------------|---------|
+| `X-User-Email` | `claims.getSubject()` | `admin@medibook.com` |
+| `X-User-Role` | `claims.get("role")` | `ADMIN` |
+| `X-User-Id` | `claims.get("userId")` | `1` |
+
+**How downstream services use these:**
+
+```java
+// In any downstream service controller:
+@GetMapping("/my-endpoint")
+public ResponseEntity<?> handle(
+        @RequestHeader("X-User-Id") Long userId,
+        @RequestHeader("X-User-Role") String role,
+        @RequestHeader("X-User-Email") String email) {
+    // No need to validate JWT again — gateway already did it
+    // Just use these headers directly
+}
+```
+
+---
+
+## 🌐 CORS Configuration
+
+Configured globally in `application.yml` — applies to every route automatically:
+
+```yaml
+globalcors:
+  cors-configurations:
+    '[/**]':
+      allowedOrigins:
+        - "http://localhost:3000"   # React CRA frontend
+        - "http://localhost:5173"   # Vite dev server
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      allowedHeaders: "*"
+      allowCredentials: true
+```
+
+**What this means:**
+- React frontend running on port 3000 or 5173 can call `localhost:8080` without CORS errors
+- All HTTP methods are allowed
+- All request headers are accepted (`*`)
+- Credentials (cookies, Authorization headers) are passed through
+
+> For production, replace `allowedOrigins` with your actual deployed frontend domain, e.g., `https://medibook.in`.
 
 ---
 
 ## ✅ Prerequisites
 
-Make sure all of these are installed before running:
-
 | Tool | Version | Check Command |
 |------|---------|---------------|
 | Java JDK | 17+ | `java -version` |
 | Maven | 3.9+ | `mvn -version` |
-| MySQL | 8.0 | `mysql --version` |
-| Redis | 7 | `redis-cli ping` |
-| Docker (optional) | Latest | `docker --version` |
+| Eureka Server | Running on :8761 | `curl http://localhost:8761/actuator/health` |
 | Git | Any | `git --version` |
 
----
-
-## 🐳 Infrastructure Setup
-
-### Option A — Docker (Recommended)
-
-```bash
-# Start MySQL
-docker run --name medibook-mysql \
-  -e MYSQL_ROOT_PASSWORD=root \
-  -e MYSQL_USER=medibook_user \
-  -e MYSQL_PASSWORD=medibook_pass \
-  -p 3306:3306 \
-  -d mysql:8.0
-
-# Start Redis
-docker run --name medibook-redis \
-  -p 6379:6379 \
-  -d redis:7
-
-# Verify Redis is running
-docker exec -it medibook-redis redis-cli ping
-# Expected output: PONG
-```
-
-### Option B — Local Installation
-
-```bash
-# MySQL — start service
-sudo service mysql start   # Linux
-# or open MySQL Workbench / XAMPP on Windows
-
-# Redis — start server
-redis-server               # Linux/Mac
-# or start Redis via Docker Desktop on Windows
-```
-
-### Create MySQL Database
-
-```sql
--- Connect to MySQL
-mysql -u root -proot
-
--- Create database and user
-CREATE DATABASE auth_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'medibook_user'@'localhost' IDENTIFIED BY 'medibook_pass';
-GRANT ALL PRIVILEGES ON auth_db.* TO 'medibook_user'@'localhost';
-FLUSH PRIVILEGES;
-
--- Verify
-SHOW DATABASES;
--- You should see: auth_db
-```
-
-> **Note:** Hibernate will **auto-create** the `users` table on first startup (`ddl-auto: update`).
+> The gateway itself needs **no database and no Redis**. It only needs Eureka to discover downstream services, and the JWT secret to validate tokens.
 
 ---
 
 ## 🔐 Environment Variables
 
-The service uses **environment variables** for all sensitive config. Set them before running.
+Only **one** environment variable is required for the gateway:
 
-### On Windows (Command Prompt / Eclipse Run Config)
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `JWT_SECRET` | ✅ Yes | Must match the secret used in `auth-service` exactly | `medibook-super-secret-key-at-least-256-bits-long` |
+
+### Set on Windows (CMD)
 
 ```cmd
-set DB_URL=jdbc:mysql://localhost:3306/auth_db?useSSL=false^&serverTimezone=UTC^&allowPublicKeyRetrieval=true
-set DB_USERNAME=your-username
-set DB_PASSWORD=your-password
-set REDIS_HOST=localhost
-set REDIS_PORT=6379
-set MAIL_USERNAME=your-gmail@gmail.com
-set MAIL_PASSWORD=your-16-char-app-password
 set JWT_SECRET=medibook-super-secret-key-must-be-at-least-256-bits-long-change-in-prod
-set JWT_EXPIRATION=86400000
-set OTP_EXPIRY_MINUTES=10
-set GOOGLE_CLIENT_ID=your-google-client-id
-set GOOGLE_CLIENT_SECRET=your-google-client-secret
-set GITHUB_CLIENT_ID=your-github-client-id
-set GITHUB_CLIENT_SECRET=your-github-client-secret
-set EUREKA_ENABLED=false
 ```
 
-### Setting in Eclipse (Recommended for development)
+### Set in Eclipse Run Config
 
-1. Right-click `AuthServiceApplication.java` → **Run As → Run Configurations**
-2. Go to **Environment** tab
-3. Click **New** for each variable and add name + value
-4. Click **Apply** → **Run**
+1. Right-click `ApiGatewayApplication.java` → **Run As → Run Configurations**
+2. Click **Environment** tab → **New**
+3. Name: `JWT_SECRET`
+4. Value: `medibook-super-secret-key-must-be-at-least-256-bits-long-change-in-prod`
+5. Click **Apply** → **Run**
 
-### Gmail App Password Setup (Required for OTP emails)
-
-```
-Step 1: Go to myaccount.google.com
-Step 2: Click "Security" in left menu
-Step 3: Enable "2-Step Verification" (must be done first)
-Step 4: Go to: myaccount.google.com/apppasswords
-Step 5: Select app: "Mail", Select device: "Other (custom name)"
-Step 6: Enter name: "MediBook"
-Step 7: Click Generate
-Step 8: Copy the 16-character password (e.g., abcd efgh ijkl mnop)
-Step 9: Use this as MAIL_PASSWORD (remove spaces: abcdefghijklmnop)
-Step 10: Use your actual Gmail address as MAIL_USERNAME
-```
-
-### Google OAuth2 Setup (Optional, for social login)
-
-```
-Step 1: Go to console.cloud.google.com
-Step 2: Create project → name it "MediBook"
-Step 3: APIs & Services → OAuth consent screen
-        → External → fill App name: "MediBook"
-        → Add scope: email, profile, openid
-Step 4: APIs & Services → Credentials
-        → Create Credentials → OAuth 2.0 Client ID
-        → Application type: Web application
-        → Authorized redirect URIs: http://localhost:8081/login/oauth2/code/google
-Step 5: Copy Client ID → set as GOOGLE_CLIENT_ID
-        Copy Client Secret → set as GOOGLE_CLIENT_SECRET
-```
-
-### GitHub OAuth2 Setup (Optional, for social login)
-
-```
-Step 1: github.com → Settings → Developer Settings → OAuth Apps
-Step 2: New OAuth App
-        → Application name: MediBook
-        → Homepage URL: http://localhost:8081
-        → Authorization callback URL: http://localhost:8081/login/oauth2/code/github
-Step 3: Generate a client secret
-Step 4: Copy Client ID → set as GITHUB_CLIENT_ID
-        Copy Client Secret → set as GITHUB_CLIENT_SECRET
-```
+> **Critical:** The `JWT_SECRET` in the gateway must be **byte-for-byte identical** to the one in `auth-service`. If they differ, the gateway will reject every token as invalid even if auth-service issued it correctly.
 
 ---
 
 ## ▶ How to Run
 
 ```bash
-# Step 1 — Clone the repo (if not already done)
-git clone https://github.com/Harshal-25C/MediBook-Microservices.git
+# Step 1 — Clone and checkout branch
+git clone https://github.com/your-username/MediBook-Microservices.git
 cd MediBook-Microservices
+git checkout feature/api-gateway
 
-# Step 2 — Checkout the auth-service branch
-git checkout feature/UC1-auth-service
+# Step 2 — Set the required env variable
+set JWT_SECRET=medibook-super-secret-key-must-be-at-least-256-bits-long-change-in-prod
 
-# Step 3 — Make sure MySQL + Redis are running
-docker ps   # verify containers are up
-
-# Step 4 — Set environment variables (Windows CMD)
-set JWT_SECRET=medibook-super-secret-key-must-be-at-least-256-bits-long
-set MAIL_USERNAME=your-gmail@gmail.com
-set MAIL_PASSWORD=your-app-password
-# ... (set all variables listed above)
-
-# Step 5 — Build and run
-cd auth-service
+# Step 3 — Build
+cd api-gateway
 mvn clean install -DskipTests
+
+# Step 4 — Run
 mvn spring-boot:run
 
-# OR run directly from Eclipse:
-# Right-click AuthServiceApplication.java → Run As → Spring Boot App
+# OR in Eclipse:
+# Right-click ApiGatewayApplication.java → Run As → Spring Boot App
 ```
 
 ### Successful Startup Output
@@ -418,915 +459,300 @@ mvn spring-boot:run
  =========|_|==============|___/=/_/_/_/
  :: Spring Boot ::                (v3.2.0)
 
-Hibernate:
-    create table users (
-        user_id bigint not null auto_increment,
-        ...
-    ) engine=InnoDB
-
-INFO  Tomcat started on port 8081 (http)
-INFO  Started AuthServiceApplication in 20.5 seconds
-Auth-Service is Running......!
+INFO  Netty started on port 8080
+INFO  Started ApiGatewayApplication in 4.3 seconds
+API Gateway is Running.......!
 ```
 
-> ⚠️ **Eureka warnings are normal** — `Cannot execute request on any known server` just means Eureka Server isn't running yet. The auth-service starts fine. To silence this, set `EUREKA_ENABLED=false`.
+> Notice it says **Netty** (not Tomcat) — this confirms the reactive WebFlux stack is running correctly.
 
 ---
 
-## 🔄 Registration Flow (OTP)
+## 🚦 Startup Order
 
-The registration process uses a **3-step OTP verification flow** to ensure only real email addresses are registered:
+The gateway **must start after** Eureka Server, because it needs Eureka to resolve `lb://service-name` routes. Microservices can start in any order after the gateway.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                   REGISTRATION FLOW                             │
-│                                                                 │
-│  STEP 1: POST /send-otp                                         │
-│  ┌──────────┐    email      ┌─────────────┐                    │
-│  │  Client  │──────────────►│ auth-service│                    │
-│  └──────────┘               └──────┬──────┘                    │
-│                                    │ check email not exist     │
-│                                    │ generate 6-digit OTP      │
-│                                    │ store OTP in Redis         │
-│                                    │   key: otp:email           │
-│                                    │   TTL: 10 minutes          │
-│                                    ▼                            │
-│                             ┌─────────────┐                    │
-│                             │ Gmail SMTP  │ sends OTP email     │
-│                             └─────────────┘                    │
-│                                                                 │
-│  STEP 2: POST /verify-otp                                       │
-│  ┌──────────┐  email+otp    ┌─────────────┐                    │
-│  │  Client  │──────────────►│ auth-service│                    │
-│  └──────────┘               └──────┬──────┘                    │
-│                                    │ match OTP from Redis       │
-│                                    │ if valid → delete OTP      │
-│                                    │ set Redis flag:            │
-│                                    │   key: email_verified:x   │
-│                                    │   TTL: 30 minutes          │
-│                                    ▼                            │
-│                          { "verified": true }                   │
-│                                                                 │
-│  STEP 3: POST /register                                         │
-│  ┌──────────┐  user data    ┌─────────────┐                    │
-│  │  Client  │──────────────►│ auth-service│                    │
-│  └──────────┘               └──────┬──────┘                    │
-│                                    │ check email_verified flag  │
-│                                    │ if missing → 409 error     │
-│                                    │ if present → save to DB    │
-│                                    │ delete Redis verified flag │
-│                                    ▼                            │
-│                          201 Created + UserResponse             │
-└─────────────────────────────────────────────────────────────────┘
+① Start Eureka Server    (port 8761)
+   └─ Wait until "Started EurekaServerApplication" appears in console
+
+② Start API Gateway      (port 8080)
+   └─ Wait until "API Gateway is Running.......!" appears in console
+
+③ Start auth-service     (port 8081)
+④ Start provider-service (port 8082)
+⑤ Start schedule-service (port 8083)
+... and so on in any order
 ```
+
+**Verify gateway registered with Eureka:**
+
+Open `http://localhost:8761` in browser. You should see `API-GATEWAY` listed under "Instances currently registered with Eureka".
 
 ---
 
-## 📡 API Reference
+## 🧪 Postman Testing via Gateway
 
-### Base URL
+Once the gateway and at least `auth-service` are running, test **through the gateway** using port `8080` instead of `8081`:
+
+### Base URL for all requests via gateway
 ```
-http://localhost:8081/api/v1/auth
+http://localhost:8080
 ```
 
----
+### 1. Send OTP (public — no token needed)
 
-### 1. Send OTP for Registration
+```
+POST http://localhost:8080/api/v1/auth/send-otp
+Content-Type: application/json
 
-| | |
-|---|---|
-| **Method** | `POST` |
-| **URL** | `/send-otp` |
-| **Auth** | ❌ Not required |
-| **Description** | Sends a 6-digit OTP to the email for registration verification |
-
-**Request Body**
-```json
 {
-  "email": "newuser123@gmail.com"
+  "email": "newuser@gmail.com"
 }
 ```
 
-**Response `200 OK`**
-```json
-{
-  "message": "OTP sent to newuser123@gmail.com. Valid for 10 minutes."
-}
+### 2. Verify OTP (public)
+
 ```
+POST http://localhost:8080/api/v1/auth/verify-otp
+Content-Type: application/json
 
-**Error Cases**
-| Code | Reason |
-|------|--------|
-| `400` | Email already registered |
-| `500` | Gmail SMTP failure (check app password) |
-
----
-
-### 2. Verify OTP
-
-| | |
-|---|---|
-| **Method** | `POST` |
-| **URL** | `/verify-otp` |
-| **Auth** | ❌ Not required |
-| **Description** | Verifies the OTP sent to email. Marks email as verified for 30 minutes |
-
-**Request Body**
-```json
 {
-  "email": "newuser123@gmail.com",
+  "email": "newuser@gmail.com",
   "otp": "482910"
 }
 ```
 
-**Response `200 OK` — Valid OTP**
-```json
-{
-  "verified": true,
-  "message": "Email verified. Now call /api/v1/auth/register to complete registration."
-}
+### 3. Register (public)
+
 ```
+POST http://localhost:8080/api/v1/auth/register
+Content-Type: application/json
 
-**Response `400` — Invalid or Expired OTP**
-```json
 {
-  "verified": false,
-  "message": "Invalid or expired OTP. Please request a new OTP."
-}
-```
-
----
-
-### 3. Register User
-
-| | |
-|---|---|
-| **Method** | `POST` |
-| **URL** | `/register` |
-| **Auth** | ❌ Not required |
-| **Description** | Creates a new user account. OTP must be verified first |
-
-**Request Body — Patient**
-```json
-{
-  "fullName": "Harsh Sarode",
-  "email": "sarodeharsh@gmail.com",
-  "password": "Harsh@123",
+  "fullName": "Harshal Choudhary",
+  "email": "newuser@gmail.com",
+  "password": "Harshal@123",
   "phone": "9876543210",
   "role": "PATIENT"
 }
 ```
 
-**Request Body — Provider**
-```json
+### 4. Login (public — get your token here)
+
+```
+POST http://localhost:8080/api/v1/auth/login
+Content-Type: application/json
+
 {
-  "fullName": "Dr. Anvii Patil",
-  "email": "patilanvii@gmail.com",
-  "password": "AnviiP@123",
-  "phone": "9876543211",
-  "role": "PROVIDER"
+  "email": "newuser@gmail.com",
+  "password": "Harshal@123"
 }
 ```
 
-**Request Body — Admin**
+**Response:**
 ```json
 {
-  "fullName": "Harshal Choudhary",
-  "email": "httpsharsh@gmail.com",
-  "password": "#Harshal@123",
-  "phone": "9876543212",
-  "role": "ADMIN"
-}
-```
-
-**Response `201 Created`**
-```json
-{
-  "userId": 1,
-  "fullName": "Harsh Sarode",
-  "email": "sarodeharsh@gmail.com",
-  "phone": "9876543210",
-  "role": "PATIENT",
-  "isActive": true,
-  "profilePicUrl": null,
-  "createdAt": "2026-04-19T16:10:00"
-}
-```
-
-**Error Cases**
-| Code | Reason |
-|------|--------|
-| `409` | Email not verified (OTP step skipped) |
-| `400` | Email already registered |
-| `400` | Validation errors (password too short, invalid phone, etc.) |
-
----
-
-### 4. Login
-
-| | |
-|---|---|
-| **Method** | `POST` |
-| **URL** | `/login` |
-| **Auth** | ❌ Not required |
-| **Description** | Authenticates user and returns a JWT token |
-
-**Request Body**
-```json
-{
-  "email": "admin123@gmail.com",
-  "password": "Admin@123"
-}
-```
-
-**Response `200 OK`**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiQURNSU4iLCJ1c2VySWQiOjEsInN1YiI6ImFkbWluMTIzQGdtYWlsLmNvbSIsImlhdCI6MTc0NTA1MDYwMCwiZXhwIjoxNzQ1MTM3MDAwfQ.xxxxxx",
+  "token": "eyJhbGciOiJIUzI1NiJ9.....",
   "tokenType": "Bearer",
-  "email": "admin123@gmail.com",
-  "role": "ADMIN",
+  "email": "newuser@gmail.com",
+  "role": "PATIENT",
   "userId": 1
 }
 ```
+> Copy the `token`. You need it for all protected requests below.
 
-> 📌 **Important:** Copy the `token` and `userId` — you will need them for all subsequent requests.
+### 5. Get Profile (protected — token required)
 
-**Error Cases**
-| Code | Reason |
-|------|--------|
-| `400` | Invalid credentials |
-| `409` | Account is deactivated |
-| `404` | User not found |
-
----
-
-### 5. Validate Token
-
-| | |
-|---|---|
-| **Method** | `GET` |
-| **URL** | `/validate` |
-| **Auth** | ✅ Bearer token in header |
-| **Description** | Validates a JWT token — used by other microservices |
-
-**Headers**
 ```
+GET http://localhost:8080/api/v1/auth/profile/1
 Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.....
 ```
 
-**Response `200 OK`**
-```json
-{
-  "valid": true
-}
+**What the gateway does behind the scenes:**
+```
+1. JwtAuthenticationFilter intercepts request
+2. Reads Authorization header → extracts token
+3. Parses JWT → subject = "newuser@gmail.com", role = "PATIENT", userId = 1
+4. Adds headers: X-User-Email, X-User-Role, X-User-Id
+5. Routes to lb://auth-service → resolves to localhost:8081
+6. Forwards GET http://localhost:8081/api/v1/auth/profile/1 + X-User-* headers
+7. auth-service responds → gateway forwards response back to client
 ```
 
-**Response `200 OK` — Invalid token**
+### 6. Test 401 — missing token
+
+```
+GET http://localhost:8080/api/v1/auth/profile/1
+(no Authorization header)
+```
+
+**Expected response:**
+```
+HTTP 401 Unauthorized
+(empty body — gateway rejects before reaching auth-service)
+```
+
+### 7. Test 401 — tampered token
+
+```
+GET http://localhost:8080/api/v1/auth/profile/1
+Authorization: Bearer invalidtoken.tampered.value
+```
+
+**Expected response:**
+```
+HTTP 401 Unauthorized
+(gateway logs: JWT validation failed)
+```
+
+### 8. Browse Providers (public — no token needed)
+
+```
+GET http://localhost:8080/api/v1/providers
+```
+
+> No token required because `/api/v1/providers` is in the public paths list — guests can browse providers per the MediBook PDF requirements.
+
+---
+
+## 📊 Actuator Endpoints
+
+The gateway exposes Spring Boot Actuator at:
+
+| Endpoint | URL | Description |
+|----------|-----|-------------|
+| Health | `http://localhost:8080/actuator/health` | Gateway and Eureka connectivity status |
+| Info | `http://localhost:8080/actuator/info` | Service name and version |
+| Gateway routes | `http://localhost:8080/actuator/gateway/routes` | Lists all configured routes with predicates and filters |
+
+**Sample `/actuator/gateway/routes` response:**
 ```json
-{
-  "valid": false
-}
+[
+  {
+    "predicate": "Paths: [/api/v1/auth/**], match trailing slash: true",
+    "route_id": "auth-service",
+    "filters": ["[[StripPrefix parts = 0], order = 1]"],
+    "uri": "lb://auth-service",
+    "order": 0
+  },
+  {
+    "predicate": "Paths: [/api/v1/providers/**], match trailing slash: true",
+    "route_id": "provider-service",
+    "uri": "lb://provider-service",
+    "order": 0
+  }
+]
 ```
 
 ---
 
-### 6. Get Profile by User ID
+## ❌ Common Issues & Fixes
 
-| | |
-|---|---|
-| **Method** | `GET` |
-| **URL** | `/profile/{userId}` |
-| **Auth** | ✅ Bearer token required |
-| **Description** | Returns the user profile for the given userId |
+### Issue 1: `spring-boot-starter-web` conflict
 
-**Headers**
 ```
-Authorization: Bearer <your_token>
+Failed to start bean 'documentationPluginsBootstrapper'
+OR
+Unable to start embedded Tomcat/Netty conflict
 ```
 
-**Response `200 OK`**
-```json
-{
-  "userId": 1,
-  "fullName": "Admin User",
-  "email": "admin123@gmail.com",
-  "phone": "9876543212",
-  "role": "ADMIN",
-  "isActive": true,
-  "profilePicUrl": null,
-  "createdAt": "2026-04-19T16:10:00"
-}
-```
+**Cause:** Added `spring-boot-starter-web` to the gateway's `pom.xml`. The gateway uses WebFlux (Netty), not Servlet (Tomcat). These two cannot coexist.
 
-**Error Cases**
-| Code | Reason |
-|------|--------|
-| `401` | Missing or invalid token |
-| `404` | User ID not found |
+**Fix:** Remove `spring-boot-starter-web` from `api-gateway/pom.xml`. Only use `spring-cloud-starter-gateway`.
 
 ---
 
-### 7. Update Profile
-
-| | |
-|---|---|
-| **Method** | `PUT` |
-| **URL** | `/profile/{userId}` |
-| **Auth** | ✅ Bearer token required |
-| **Description** | Updates fullName, phone, or profilePicUrl (all fields optional) |
-
-**Headers**
-```
-Authorization: Bearer <your_token>
-Content-Type: application/json
-```
-
-**Request Body**
-```json
-{
-  "fullName": "Admin User Updated",
-  "phone": "9999999999",
-  "profilePicUrl": "https://example.com/profile.jpg"
-}
-```
-
-**Response `200 OK`** — Returns updated UserResponse
-
----
-
-### 8. Change Password
-
-| | |
-|---|---|
-| **Method** | `PUT` |
-| **URL** | `/password/{userId}` |
-| **Auth** | ✅ Bearer token required |
-| **Description** | Changes password — requires current password verification |
-
-**Headers**
-```
-Authorization: Bearer <your_token>
-Content-Type: application/json
-```
-
-**Request Body**
-```json
-{
-  "oldPassword": "cryptoHarshhh@123",
-  "newPassword": "PsycoHarshh@XX.jar"
-}
-```
-
-**Response `204 No Content`** — Password changed successfully
-
-**Error Cases**
-| Code | Reason |
-|------|--------|
-| `400` | Current password is incorrect |
-| `400` | New password too short (minimum 6 characters) |
-
----
-
-### 9. Deactivate Account
-
-| | |
-|---|---|
-| **Method** | `PUT` |
-| **URL** | `/deactivate/{userId}` |
-| **Auth** | ✅ Bearer token required |
-| **Description** | Soft-deactivates account (isActive = false). User cannot login after this |
-
-**Headers**
-```
-Authorization: Bearer <your_token>
-```
-
-**Response `204 No Content`** — Account deactivated
-
----
-
-### 10. Refresh Token
-
-| | |
-|---|---|
-| **Method** | `POST` |
-| **URL** | `/refresh` |
-| **Auth** | ✅ Bearer token required (can be near-expiry) |
-| **Description** | Issues a new JWT token without re-login |
-
-**Headers**
-```
-Authorization: Bearer <old_token>
-```
-
-**Response `200 OK`**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiJ9.new_token_here...",
-  "tokenType": "Bearer"
-}
-```
-
----
-
-### 11. Logout
-
-| | |
-|---|---|
-| **Method** | `POST` |
-| **URL** | `/logout` |
-| **Auth** | ✅ Bearer token required |
-| **Description** | Logs out the user (logs the event; Redis blacklist integration ready) |
-
-**Headers**
-```
-Authorization: Bearer <your_token>
-```
-
-**Response `204 No Content`**
-
----
-
-### 12. Request OTP for Account Deletion
-
-| | |
-|---|---|
-| **Method** | `POST` |
-| **URL** | `/delete-account/request-otp` |
-| **Auth** | ✅ Bearer token required |
-| **Description** | Sends a one-time OTP to the logged-in user's email before permanent deletion |
-
-**Headers**
-```
-Authorization: Bearer <your_token>
-```
-
-**Response `200 OK`**
-```json
-{
-  "message": "Delete account OTP sent to your registered email."
-}
-```
-
----
-
-### 13. Confirm Account Deletion with OTP
-
-| | |
-|---|---|
-| **Method** | `DELETE` |
-| **URL** | `/delete-account/confirm` |
-| **Auth** | ✅ Bearer token required |
-| **Description** | Permanently deletes the authenticated user's account after OTP verification |
-
-**Headers**
-```
-Authorization: Bearer <your_token>
-Content-Type: application/json
-```
-
-**Request Body**
-```json
-{
-  "otp": "482910"
-}
-```
-
-**Response `200 OK`**
-```json
-{
-  "message": "Your account has been deleted permanently."
-}
-```
-
-**Error Cases**
-| Code | Reason |
-|------|--------|
-| `400` | Invalid or expired OTP |
-| `404` | User not found |
-
----
-
-### 14. Admin Delete Any User
-
-| | |
-|---|---|
-| **Method** | `DELETE` |
-| **URL** | `/admin/users/{userId}` |
-| **Auth** | ✅ Bearer token required — **ADMIN role only** |
-| **Description** | Admin permanently deletes any Patient or Provider account by userId |
-
-**Headers**
-```
-Authorization: Bearer <admin_token>
-```
-
-**Response `200 OK`**
-```json
-{
-  "message": "User deleted successfully by admin."
-}
-```
-
-**Error Cases**
-| Code | Reason |
-|------|--------|
-| `403` | Non-admin trying to use this endpoint |
-| `409` | Trying to delete an Admin account |
-| `404` | userId not found |
-
----
-
-## 🧪 Postman Testing Guide
-
-### Setup Postman Environment
-
-Create a new environment in Postman with these variables:
-
-| Variable | Initial Value | Description |
-|----------|--------------|-------------|
-| `baseUrl` | `http://localhost:8081/api/v1/auth` | Base URL |
-| `token` | *(empty)* | User JWT token (fill after login) |
-| `adminToken` | *(empty)* | Admin JWT token (fill after admin login) |
-| `userId` | *(empty)* | User ID (fill after register/login) |
-| `adminUserId` | *(empty)* | Admin user ID |
-| `otp` | *(empty)* | Current OTP received in email |
-
-Use in requests:
-```
-URL:    {{baseUrl}}/login
-Header: Authorization: Bearer {{token}}
-```
-
----
-
-### 🚦 Recommended Testing Order
-
-#### For a New Patient User
-
-```
-1. POST {{baseUrl}}/send-otp          → send OTP to newuser123@gmail.com
-2. Check Gmail inbox → copy OTP
-3. POST {{baseUrl}}/verify-otp        → verify OTP
-4. POST {{baseUrl}}/register          → complete registration
-5. POST {{baseUrl}}/login             → get token → save to {{token}}, save userId
-6. GET  {{baseUrl}}/validate          → verify token is valid
-7. GET  {{baseUrl}}/profile/{{userId}} → see profile
-8. PUT  {{baseUrl}}/profile/{{userId}} → update name/phone
-9. PUT  {{baseUrl}}/password/{{userId}} → change password
-10. POST {{baseUrl}}/refresh           → get new token
-11. POST {{baseUrl}}/delete-account/request-otp → get OTP for deletion
-12. DELETE {{baseUrl}}/delete-account/confirm → delete account
-```
-
-#### For Admin Operations
-
-```
-1. Register admin account (follow Patient steps with role: "ADMIN")
-2. POST {{baseUrl}}/login             → get adminToken
-3. GET  {{baseUrl}}/validate          → verify admin token
-4. GET  {{baseUrl}}/profile/{{adminUserId}} → view admin profile
-5. DELETE {{baseUrl}}/admin/users/2   → delete user with ID 2
-   (Use a non-admin userId. Trying to delete an admin will give 409.)
-```
-
----
-
-### 📋 Ready-to-Use Request Bodies
-
-**Send OTP**
-```json
-{ "email": "newuser123@gmail.com" }
-```
-
-**Verify OTP**
-```json
-{ "email": "newuser123@gmail.com", "otp": "482910" }
-```
-
-**Register Patient**
-```json
-{
-  "fullName": "Harsh Sarode",
-  "email": "sarodeharsh@gmail.com",
-  "password": "Harsh@123",
-  "phone": "9876543210",
-  "role": "PATIENT"
-}
-```
-
-**Register Provider**
-```json
-{
-  "fullName": "Dr. Anvii Patil",
-  "email": "patilanvii@gmail.com",
-  "password": "AnviiP@123",
-  "phone": "9876543211",
-  "role": "PROVIDER"
-}
-```
-
-**Register Admin**
-```json
-{
-  "fullName": "Harshal Choudhary",
-  "email": "httpsharsh@gmail.com",
-  "password": "#Harshal@123",
-  "phone": "9876543212",
-  "role": "ADMIN"
-}
-```
-
-**Login**
-```json
-{ "email": "httpsharsh@gmail.com", "password": "#Harshal@123" }
-```
-
-**Update Profile**
-```json
-{
-  "fullName": "Harsh Updated",
-  "phone": "9988776655",
-  "profilePicUrl": "https://example.com/harsh.jpg"
-}
-```
-
-**Change Password**
-```json
-{ "oldPassword": "Admin@123", "newPassword": "Admin@456" }
-```
-
-**Delete Account (confirm)**
-```json
-{ "otp": "482910" }
-```
-
----
-
-### 🔑 Token Usage in Postman
-
-For all **protected endpoints**, add this header:
-
-| Key | Value |
-|-----|-------|
-| `Authorization` | `Bearer eyJhbGciOiJIUzI1NiJ9.....` |
-
-**Protected endpoints (require Bearer token):**
-- `/logout`
-- `/refresh`
-- `/profile/{userId}` (GET + PUT)
-- `/password/{userId}`
-- `/deactivate/{userId}`
-- `/delete-account/request-otp`
-- `/delete-account/confirm`
-- `/admin/users/{userId}`
-
----
-
-## 🔒 Security Architecture
-
-```
-Incoming Request
-      │
-      ▼
-┌─────────────────────────────────┐
-│     JwtAuthenticationFilter      │  ← Runs on EVERY request
-│                                  │
-│  1. Read Authorization header    │
-│  2. Extract "Bearer " prefix     │
-│  3. Parse JWT → extract email    │
-│  4. Load UserDetails from DB     │
-│  5. Validate token signature     │
-│  6. Set SecurityContext if valid │
-└──────────────┬──────────────────┘
-               │
-               ▼
-┌─────────────────────────────────┐
-│        SecurityConfig            │
-│                                  │
-│  PUBLIC (no token needed):       │
-│  POST  /send-otp                 │
-│  POST  /verify-otp               │
-│  POST  /register                 │
-│  POST  /login                    │
-│  POST  /refresh                  │
-│  GET   /validate                 │
-│  GET   /swagger-ui/**            │
-│  GET   /api-docs/**              │
-│  GET   /actuator/health          │
-│                                  │
-│  PROTECTED (token required):     │
-│  Everything else → authenticated │
-└──────────────┬──────────────────┘
-               │
-               ▼
-┌─────────────────────────────────┐
-│     @PreAuthorize (Method Level) │
-│                                  │
-│  @PreAuthorize("hasRole('ADMIN')")│
-│  → /admin/users/{userId}         │
-│  → Returns 403 if not ADMIN role │
-└─────────────────────────────────┘
-```
-
-### JWT Token Structure
-
-```
-Header:    { "alg": "HS256", "typ": "JWT" }
-Payload:   {
-             "role": "ADMIN",
-             "userId": 1,
-             "sub": "admin123@gmail.com",
-             "iat": 1745050600,
-             "exp": 1745137000
-           }
-Signature: HMAC-SHA256(base64(header) + "." + base64(payload), secret)
-```
-
----
-
-## 🗄 Database Schema
-
-Table: **`users`** (auto-created by Hibernate on startup)
-
-```sql
-CREATE TABLE users (
-    user_id         BIGINT          NOT NULL AUTO_INCREMENT,
-    full_name       VARCHAR(255)    NOT NULL,
-    email           VARCHAR(255)    NOT NULL UNIQUE,
-    password_hash   VARCHAR(255),
-    phone           VARCHAR(255),
-    role            ENUM('PATIENT','PROVIDER','ADMIN') NOT NULL,
-    provider        ENUM('LOCAL','GOOGLE','GITHUB'),
-    is_active       BIT             NOT NULL DEFAULT 1,
-    profile_pic_url VARCHAR(255),
-    created_at      DATETIME(6),
-    updated_at      DATETIME(6),
-    PRIMARY KEY (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-```
-
----
-
-## 🔑 Redis Key Design
-
-| Key Pattern | Value | TTL | Purpose |
-|-------------|-------|-----|---------|
-| `otp:{email}` | `"482910"` | 10 minutes | Stores OTP for email verification |
-| `email_verified:{email}` | `"true"` | 30 minutes | Flag set after OTP verified, cleared after register |
-
----
-
-## ❌ Error Responses
-
-All errors return consistent JSON:
+### Issue 2: 503 Service Unavailable
 
 ```json
 {
-  "status": 400,
-  "message": "Email already registered.",
-  "timestamp": "2026-04-19T16:30:00"
+  "timestamp": "...",
+  "path": "/api/v1/auth/login",
+  "status": 503,
+  "error": "Service Unavailable",
+  "message": "Unable to find instance for auth-service"
 }
 ```
 
-| HTTP Code | When |
-|-----------|------|
-| `400 Bad Request` | Validation failure, invalid credentials, incorrect password, bad OTP |
-| `401 Unauthorized` | Missing or malformed Authorization header |
-| `403 Forbidden` | Non-admin accessing admin endpoint |
-| `404 Not Found` | User ID or email not found |
-| `409 Conflict` | Email not verified, account deactivated, trying to delete admin |
+**Cause:** The gateway can't find `auth-service` in Eureka.
+
+**Fix — check all three:**
+1. Is `auth-service` actually running? Check its console.
+2. Is Eureka running on port 8761? Open `http://localhost:8761`.
+3. Is `auth-service` listed in the Eureka dashboard? If not, check its `application.yml` Eureka config.
 
 ---
 
-## 📖 Swagger UI
-
-Once the service is running, open in your browser:
+### Issue 3: 401 on every request including login
 
 ```
-http://localhost:8081/swagger-ui.html
+401 Unauthorized on POST /api/v1/auth/login
 ```
 
-You can:
-- See all 14 API endpoints grouped under **Authentication**
-- Try each endpoint directly in the browser
-- See request/response schemas
+**Cause:** `/api/v1/auth/login` should be in the public path list but your `JWT_SECRET` may not be set, causing the filter to crash on startup, or the public path check has a bug.
 
-Also available:
-```
-http://localhost:8081/api-docs          ← OpenAPI JSON spec
-http://localhost:8081/actuator/health   ← Service health check
-http://localhost:8081/actuator/info     ← Service info
-http://localhost:8081/actuator/metrics  ← JVM/HTTP metrics
-```
+**Fix:** Verify the `PUBLIC_PATHS` list in `JwtAuthenticationFilter.java` includes `/api/v1/auth/login`. Also verify `JWT_SECRET` env variable is set.
 
 ---
 
-## 🔧 Common Issues & Fixes
-
-### Issue 1: Eureka Connection Refused warnings in console
+### Issue 4: JWT validation failed — "secret too short"
 
 ```
-Cannot execute request on any known server
+JWT validation failed: The signing key's size is 248 bits...
 ```
 
-**This is NOT an error.** auth-service started successfully. Eureka Server simply isn't running.
+**Cause:** Your `JWT_SECRET` value is shorter than 256 bits (32 characters).
 
-**Fix:** Set environment variable `EUREKA_ENABLED=false` to silence these warnings during development.
-
----
-
-### Issue 2: Redis connection refused
-
+**Fix:** Use a secret that is at least 32 characters long:
 ```
-Unable to connect to Redis; nested exception is io.lettuce.core.RedisConnectionException
-```
-
-**Fix:** Start Redis container:
-```bash
-docker run --name medibook-redis -p 6379:6379 -d redis:7
-# Verify:
-docker exec -it medibook-redis redis-cli ping
-# Should print: PONG
+medibook-super-secret-key-must-be-at-least-256-bits-long
 ```
 
 ---
 
-### Issue 3: Mail authentication failed
+### Issue 5: CORS error in browser
 
 ```
-535-5.7.8 Username and Password not accepted
+Access to XMLHttpRequest at 'http://localhost:8080/api/...'
+from origin 'http://localhost:3000' has been blocked by CORS policy
 ```
 
-**Fix:** You're using your regular Gmail password. You need an **App Password**.
-Go to `myaccount.google.com/apppasswords` and generate one.
+**Cause:** Either the gateway isn't running, or your frontend origin isn't in `allowedOrigins`.
 
----
-
-### Issue 4: OTP email not received
-
-- Check spam/junk folder
-- Verify `MAIL_USERNAME` is your actual Gmail
-- Verify `MAIL_PASSWORD` is the 16-char app password (no spaces)
-- Make sure 2-Step Verification is enabled on Gmail
-
----
-
-### Issue 5: 409 Conflict on `/register` — "Email not verified"
-
-You tried to register without completing the OTP verification step.
-
-**Fix:** Follow the correct 3-step flow:
-1. `POST /send-otp` first
-2. `POST /verify-otp` with the OTP from email
-3. Then `POST /register`
-
----
-
-### Issue 6: MySQL dialect deprecation warning
-
-```
-HHH90000025: MySQL8Dialect does not need to be specified explicitly
-```
-
-**Not an error.** Just a Hibernate 6 informational warning. Already corrected in `application.yml` to use `org.hibernate.dialect.MySQLDialect`.
-
----
-
-### Issue 7: Cannot find template location
-
-```
-Cannot find template location: classpath:/templates/
-```
-
-**Not an error.** auth-service is a REST API, not a Thymeleaf web app. Fixed in `application.yml`:
+**Fix:** Add your frontend origin to `application.yml`:
 ```yaml
-spring:
-  thymeleaf:
-    check-template-location: false
+allowedOrigins:
+  - "http://localhost:3000"
+  - "http://localhost:5173"
+  - "http://your-new-frontend-port"
 ```
 
 ---
 
-## 📊 API Summary Table
+### Issue 6: Eureka registration shows "STARTING" for a long time
 
-| # | Method | Endpoint | Auth Required | Role |
-|---|--------|----------|--------------|------|
-| 1 | POST | `/send-otp` | ❌ | Any |
-| 2 | POST | `/verify-otp` | ❌ | Any |
-| 3 | POST | `/register` | ❌ | Any |
-| 4 | POST | `/login` | ❌ | Any |
-| 5 | GET | `/validate` | ✅ | Any |
-| 6 | POST | `/refresh` | ✅ | Any |
-| 7 | POST | `/logout` | ✅ | Any |
-| 8 | GET | `/profile/{userId}` | ✅ | Any |
-| 9 | PUT | `/profile/{userId}` | ✅ | Any |
-| 10 | PUT | `/password/{userId}` | ✅ | Any |
-| 11 | PUT | `/deactivate/{userId}` | ✅ | Any |
-| 12 | POST | `/delete-account/request-otp` | ✅ | Any |
-| 13 | DELETE | `/delete-account/confirm` | ✅ | Any |
-| 14 | DELETE | `/admin/users/{userId}` | ✅ | **ADMIN only** |
+**Cause:** The gateway registered but Eureka hasn't completed the handshake.
+
+**Fix:** This is normal for 30–60 seconds after startup. Eureka heartbeat interval is 30 seconds. Wait and the status will change to `UP`.
+
+---
+
+### Issue 7: `Cannot determine local hostname`
+
+```
+WARN Cannot determine local hostname
+```
+
+**This is NOT an error.** This is a known Eureka client warning on Windows when the machine hostname isn't resolvable. The service still starts and registers correctly. To silence it, add to `application.yml`:
+
+```yaml
+eureka:
+  instance:
+    hostname: localhost
+    prefer-ip-address: true
+    ip-address: 127.0.0.1
+```
 
 ---
 
@@ -1334,44 +760,61 @@ spring:
 
 ```
 Repository  : MediBook-Microservices
-Branch      : feature/UC1-auth-service
+Branch      : feature/api-gateway
 Base Branch : develop
 Merge Target: develop (PR required)
+Start After : feature/eureka-server must be merged first
 ```
 
 **Commit convention:**
 ```
-feat(auth): add OTP-verified registration
-fix(auth): handle expired token in refresh endpoint
-refactor(auth): extract JWT claims parsing to JwtUtil
-test(auth): add unit tests for AuthServiceImpl
-docs(auth): update README with Postman guide
+feat(gateway): add JWT authentication global filter
+feat(gateway): add CORS global configuration
+feat(gateway): add route for notification-service
+fix(gateway): handle null userId in JWT claims forwarding
+refactor(gateway): extract public paths to constant list
+docs(gateway): update README with route table
 ```
+
+---
+
+## 📝 Key Design Decisions
+
+**Why Spring Cloud Gateway instead of Zuul?**
+Zuul 1 is blocking/servlet-based and no longer actively developed. Spring Cloud Gateway is the modern replacement — reactive, non-blocking, and officially supported by the Spring team.
+
+**Why validate JWT at the gateway and not in each service?**
+Centralizing JWT validation at the gateway means: (1) each downstream service doesn't need the JWT secret or jjwt library, (2) one place to update security logic, (3) downstream services simply trust the `X-User-*` headers the gateway injects.
+
+**Why `StripPrefix=0`?**
+The downstream services expose their APIs under the same path prefix (e.g., `auth-service` listens on `/api/v1/auth/**`). Without `StripPrefix=0`, the gateway would strip the path prefix before forwarding, breaking the downstream route matching.
+
+**Why `order = -1` for the JWT filter?**
+Order `-1` ensures the JWT filter runs before Spring Cloud Gateway's built-in route filters (which have order 0 and above). This guarantees that unauthorized requests are rejected before any routing logic executes.
 
 ---
 
 ## 👨‍💻 Developer Notes
 
-- All config values use environment variables with sensible defaults — never hardcode secrets
-- `ddl-auto: update` is fine for development; change to `validate` in production
-- Logout currently logs the event — production implementation should blacklist the token in Redis using the token's remaining TTL
-- The `CustomUserDetailsService` loads the user on **every authenticated request** — consider adding a Redis/cache layer for production performance
-- `@EnableScheduling` is active on the main class — ready for scheduled jobs (e.g., expired OTP cleanup)
-- Admin accounts are protected from deletion via the admin delete endpoint
+- The gateway has **no database** — it is completely stateless
+- The gateway shares the **same JWT secret** as `auth-service` — keep them in sync via the same environment variable
+- `discovery.locator.enabled: true` means any new service that registers with Eureka is automatically accessible at `http://localhost:8080/service-name/**` without adding a manual route entry
+- For production, add **rate limiting** using Spring Cloud Gateway's `RequestRateLimiter` filter with Redis
+- For production, add **circuit breaking** using Spring Cloud CircuitBreaker (Resilience4j) to handle downstream service failures gracefully
 
 ---
 
 ### Author👨‍💻
 
-[Harshal Choudhary](https://github.com/Harshal-25C) - Software Developer👨‍💻 | Cloud Enthusiast              
-B.Tech - `[Computer Science & Engineering]`         
-Java | Spring Boot | Maven | JWT & Security | OAuth | React.js | Clean Architecture
+[Harshal Choudhary](https://github.com/Harshal-25C) - Software Developer👨‍💻 | Cloud Enthusiast  
+B.Tech - `[Computer Science & Engineering]`  
+Java | Spring Boot | Spring Cloud | JWT & Security | React.js | Clean Architecture
 
 ---
 
 <div align="center">
 
-**MediBook Auth Service** | Part of MediBook Microservices Platform
+**MediBook API Gateway** | Part of MediBook Microservices Platform
 
 *Confidential | MediBook Platform | Internal Use Only*
 
