@@ -2,23 +2,19 @@ package com.medibook.auth.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users",
-    uniqueConstraints = {
-        @UniqueConstraint(columnNames = "email")
-    })
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor
+@Table(name = "users")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long userId;
+    private int userId;
 
     @Column(nullable = false)
     private String fullName;
@@ -30,31 +26,31 @@ public class User {
 
     private String phone;
 
-    @Enumerated(EnumType.STRING)
+    // Patient / Provider / Admin
     @Column(nullable = false)
-    private Role role;
+    private String role;
 
-    @Enumerated(EnumType.STRING)
-    private OAuthProvider provider;
+    // google / github / null for normal login
+    private String provider;
 
     @Column(nullable = false)
-    @Builder.Default
-    private Boolean isActive = true;
+    private boolean isActive = true;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
     private String profilePicUrl;
 
-    @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
-
-    @UpdateTimestamp
-    private LocalDateTime updatedAt;
-
-    public enum Role {
-        PATIENT, PROVIDER, ADMIN
+    @PrePersist
+    public void prePersist() {
+        this.createdAt = LocalDateTime.now();
     }
 
-    public enum OAuthProvider {
-        LOCAL, GOOGLE, GITHUB
-    }
+//    public enum Role {
+//        PATIENT, PROVIDER, ADMIN
+//    }
+//
+//    public enum OAuthProvider {
+//        LOCAL, GOOGLE, GITHUB
+//    }
 }

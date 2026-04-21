@@ -3,7 +3,6 @@ package com.medibook.gateway.filter;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -15,40 +14,59 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.List;
 
-@Slf4j
+/**
+ * Global JWT filter running on every request through the gateway.
+ *
+ * PUBLIC routes (no token needed) — same as monolith SecurityConfig:
+ *   POST /auth/register, /auth/login, /auth/verify-otp, /auth/resend-otp,
+ *   /auth/add-phone, /auth/forgot-password, /auth/verify-reset-otp,
+ *   /auth/reset-password, /auth/admin/register, /auth/google/complete,
+ *   GET  /providers/**, GET /slots/available/**
+ *   OAuth2 redirect: /oauth2/**, /login/oauth2/**
+ *
+ * PROTECTED routes — need valid Bearer token:
+ *   /appointments/**, /payments/**, /reviews/**, /records/**,
+ *   /slots/** (non-available), /notifications/**
+ */
 @Component
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
-    @Value("${medibook.jwt.secret}")
-    private String jwtSecret;
+    @Value("${jwt.secret}")
+    private String secret;
 
-    // These paths are PUBLIC — no JWT needed
+    // ── All paths that are completely PUBLIC (no token needed) ─────────
     private static final List<String> PUBLIC_PATHS = List.of(
-        "/api/v1/auth/login",
-        "/api/v1/auth/register",
-        "/api/v1/auth/send-otp",
-        "/api/v1/auth/verify-otp",
-        "/api/v1/auth/refresh",
-        "/api/v1/providers",         // guests can browse providers
-        "/api/v1/slots",             // guests can view slots
-        "/actuator",
-        "/swagger-ui",
-        "/api-docs"
+        "/auth/register",
+        "/auth/login",
+        "/auth/verify-otp",
+        "/auth/resend-otp",
+        "/auth/add-phone",
+        "/auth/forgot-password",
+        "/auth/verify-reset-otp",
+        "/auth/reset-password",
+        "/auth/admin/register",
+        "/auth/google/complete",
+        "/auth/refresh"
+    );
+
+    private static final List<String> PUBLIC_PREFIXES = List.of(
+        "/oauth2/",
+        "/login/oauth2/",
+        "/providers/",       // guests can browse doctors
+        "/slots/available/"  // guests can view available slots
     );
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
+        String method = request.getMethod().name();
 
-        // Allow public paths without token
-        boolean isPublic = PUBLIC_PATHS.stream()
-                .anyMatch(p -> path.startsWith(p));
-        if (isPublic) {
+        // Allow all public paths without token
+        if (isPublic(path, method)) {
             return chain.filter(exchange);
         }
 
@@ -61,31 +79,45 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
         String token = authHeader.substring(7);
         try {
-            Key key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
-            Claims claims = Jwts.parserBuilder()
-                    .setSigningKey(key)
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody();
-
-            // Forward user info as headers to downstream services
+            Claims claims = parseToken(token);
+            // Forward userId and role as headers to downstream services
             ServerHttpRequest mutatedRequest = request.mutate()
-                    .header("X-User-Email", claims.getSubject())
-                    .header("X-User-Role", (String) claims.get("role"))
-                    .header("X-User-Id", String.valueOf(claims.get("userId")))
-                    .build();
-
+                .header("X-User-Id", String.valueOf(claims.get("userId")))
+                .header("X-User-Role", (String) claims.get("role"))
+                .header("X-User-Email", claims.getSubject())
+                .build();
             return chain.filter(exchange.mutate().request(mutatedRequest).build());
-
         } catch (Exception e) {
-            log.error("JWT validation failed: {}", e.getMessage());
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
     }
 
+    private boolean isPublic(String path, String method) {
+        // Exact match for public POST paths
+        for (String pub : PUBLIC_PATHS) {
+            if (path.equals(pub)) return true;
+        }
+        // Prefix match
+        for (String prefix : PUBLIC_PREFIXES) {
+            if (path.startsWith(prefix)) return true;
+        }
+        // GET /providers (root) is also public
+        if (path.equals("/providers") && method.equals("GET")) return true;
+        return false;
+    }
+
+    private Claims parseToken(String token) {
+        Key key = Keys.hmacShaKeyFor(secret.getBytes());
+        return Jwts.parserBuilder()
+            .setSigningKey(key)
+            .build()
+            .parseClaimsJws(token)
+            .getBody();
+    }
+
     @Override
     public int getOrder() {
-        return -1; // Run this filter before all others
+        return -1; // Run before all other filters
     }
 }

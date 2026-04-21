@@ -2,66 +2,65 @@ package com.medibook.provider.entity;
  
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
- 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
- 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+
 @Entity
-@Table(name = "providers",
-    indexes = {
-        @Index(name = "idx_user_id",      columnList = "userId"),
-        @Index(name = "idx_specialization", columnList = "specialization"),
-        @Index(name = "idx_is_verified",  columnList = "isVerified")
-    },
-    uniqueConstraints = {
-        @UniqueConstraint(columnNames = "userId")
-    })
-@Getter
-@Setter
+@Table(name = "providers")
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class Provider {
- 
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long providerId;
- 
-    // Foreign key to users table in auth-service (no JPA join — microservice boundary)
+    private int providerId;
+
     @Column(nullable = false, unique = true)
-    private Long userId;
- 
+    private int userId;
+
     @Column(nullable = false)
     private String specialization;
- 
-    @Column(nullable = false, columnDefinition = "TEXT")
+
+    @Column(nullable = false)
     private String qualification;
- 
-    private Integer experienceYears;
- 
-    @Column(columnDefinition = "TEXT")
+
+    private int experienceYears;
+
     private String bio;
- 
+
+    @Column(nullable = false)
     private String clinicName;
- 
-    @Column(columnDefinition = "TEXT")
+
+    @Column(nullable = false)
     private String clinicAddress;
- 
-    @Builder.Default
-    private Double avgRating = 0.0;
- 
-    @Builder.Default
-    private Boolean isVerified = false;
- 
-    @Builder.Default
-    private Boolean isAvailable = true;
- 
-    @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
- 
-    @UpdateTimestamp
-    private LocalDateTime updatedAt;
+
+    private double avgRating = 0.0;
+
+    @Getter(AccessLevel.NONE)
+    @Column(name = "is_verified", nullable = false, columnDefinition = "bit(1) default 0")
+    private boolean verified = false;
+
+    @Column(nullable = false)
+    private boolean isAvailable = true;
+    
+    @Column(nullable = false, updatable = false)
+    private LocalDate createdAt;
+
+    @PrePersist
+    public void prePersist() {
+        this.createdAt = LocalDate.now();
+    }
+
+    @JsonProperty("isVerified")
+    public boolean isVerified() {
+        return verified;
+    }
+
+    public void setVerified(boolean verified) {
+        this.verified = verified;
+    }
+
 }

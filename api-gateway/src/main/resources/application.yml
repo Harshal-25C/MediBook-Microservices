@@ -7,129 +7,86 @@ spring:
 
   cloud:
     gateway:
-      # Automatically discover services from Eureka and route by service name
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
-
-      # Manual route definitions (precise control over path + JWT filter)
-      routes:
-
-        # ── Auth Service ─────────────────────────────────────────────────────
-        - id: auth-service
-          uri: lb://auth-service        # lb = load balanced via Eureka
-          predicates:
-            - Path=/api/v1/auth/**
-          filters:
-            - StripPrefix=0
-
-        # ── Provider Service ──────────────────────────────────────────────────
-        - id: provider-service
-          uri: lb://provider-service
-          predicates:
-            - Path=/api/v1/providers/**
-          filters:
-            - StripPrefix=0
-
-        # ── Schedule Service ──────────────────────────────────────────────────
-        - id: schedule-service
-          uri: lb://schedule-service
-          predicates:
-            - Path=/api/v1/slots/**
-          filters:
-            - StripPrefix=0
-
-        # ── Appointment Service ───────────────────────────────────────────────
-        - id: appointment-service
-          uri: lb://appointment-service
-          predicates:
-            - Path=/api/v1/appointments/**
-          filters:
-            - StripPrefix=0
-
-        # ── Payment Service ───────────────────────────────────────────────────
-        - id: payment-service
-          uri: lb://payment-service
-          predicates:
-            - Path=/api/v1/payments/**
-          filters:
-            - StripPrefix=0
-
-        # ── Review Service ────────────────────────────────────────────────────
-        - id: review-service
-          uri: lb://review-service
-          predicates:
-            - Path=/api/v1/reviews/**
-          filters:
-            - StripPrefix=0
-
-        # ── Notification Service ──────────────────────────────────────────────
-        - id: notification-service
-          uri: lb://notification-service
-          predicates:
-            - Path=/api/v1/notifications/**
-          filters:
-            - StripPrefix=0
-
-        # ── Record Service ────────────────────────────────────────────────────
-        - id: record-service
-          uri: lb://record-service
-          predicates:
-            - Path=/api/v1/records/**
-          filters:
-            - StripPrefix=0
-
-        # ── Admin Service ─────────────────────────────────────────────────────
-        - id: admin-service
-          uri: lb://admin-service
-          predicates:
-            - Path=/api/v1/admin/**
-          filters:
-            - StripPrefix=0
-
-        # ── Payment Gateway Service ───────────────────────────────────────────
-        - id: payment-gateway-service
-          uri: lb://payment-gateway-service
-          predicates:
-            - Path=/api/v1/gateway/**
-          filters:
-            - StripPrefix=0
-
-      # Global CORS configuration (needed for React frontend)
       globalcors:
-        cors-configurations:
+        corsConfigurations:
           '[/**]':
             allowedOrigins:
-              - "http://localhost:3000"   # React frontend
-              - "http://localhost:5173"   # Vite dev server
+              - "http://localhost:5173"
+              - "http://localhost:5174"
             allowedMethods:
               - GET
               - POST
               - PUT
               - DELETE
               - OPTIONS
+              - PATCH
             allowedHeaders: "*"
-            allowCredentials: true
+            allowCredentials: false
+            maxAge: 3600
+            exposedHeaders:
+              - Authorization
 
-# ── Eureka Client ─────────────────────────────────────────────────────────────
+      routes:
+        # ── AUTH SERVICE ─────────────────────────────────────────────
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/auth/**,/oauth2/**,/login/oauth2/**
+
+        # ── PROVIDER SERVICE ─────────────────────────────────────────
+        - id: provider-service
+          uri: lb://provider-service
+          predicates:
+            - Path=/providers/**
+
+        # ── SLOT SERVICE ─────────────────────────────────────────────
+        - id: schedule-service
+          uri: lb://schedule-service
+          predicates:
+            - Path=/slots/**
+
+        # ── APPOINTMENT SERVICE ───────────────────────────────────────
+        - id: appointment-service
+          uri: lb://appointment-service
+          predicates:
+            - Path=/appointments/**
+
+        # ── PAYMENT SERVICE ───────────────────────────────────────────
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/payments/**
+
+        # ── NOTIFICATION SERVICE ──────────────────────────────────────
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/notifications/**
+
+        # ── REVIEW SERVICE ────────────────────────────────────────────
+        - id: review-service
+          uri: lb://review-service
+          predicates:
+            - Path=/reviews/**
+
+        # ── RECORD SERVICE ────────────────────────────────────────────
+        - id: record-service
+          uri: lb://record-service
+          predicates:
+            - Path=/records/**
+
+# Eureka registration
 eureka:
   client:
     service-url:
       defaultZone: http://admin:medibook123@localhost:8761/eureka/
-    fetch-registry: true
-    register-with-eureka: true
   instance:
     prefer-ip-address: true
 
-# ── Actuator ──────────────────────────────────────────────────────────────────
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health, info, gateway
+# JWT secret — must match auth-service
+jwt:
+  secret: ${JWT_SECRET}
 
-# JWT-Secret
-medibook:
-  jwt:
-     secret: ${JWT_SECRET}
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO

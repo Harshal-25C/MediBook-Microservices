@@ -1,252 +1,398 @@
 package com.medibook.auth.service.impl;
 
-import org.springframework.data.redis.core.StringRedisTemplate;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.medibook.auth.dto.request.LoginRequest;
+import com.medibook.auth.dto.request.RegisterAdminRequest;
 import com.medibook.auth.dto.request.RegisterRequest;
-import com.medibook.auth.dto.request.UpdateProfileRequest;
 import com.medibook.auth.dto.response.AuthResponse;
-import com.medibook.auth.dto.response.UserResponse;
+import com.medibook.auth.entity.PasswordResetToken;
 import com.medibook.auth.entity.User;
+import com.medibook.auth.exception.BadRequestException;
+import com.medibook.auth.exception.DuplicateResourceException;
 import com.medibook.auth.exception.ResourceNotFoundException;
+import com.medibook.auth.exception.UnauthorizedException;
+import com.medibook.auth.repository.PasswordResetTokenRepository;
 import com.medibook.auth.repository.UserRepository;
+import com.medibook.auth.security.JwtUtil;
 import com.medibook.auth.service.AuthService;
-import com.medibook.auth.service.OtpService;
-import com.medibook.auth.util.JwtUtil;
+import com.medibook.otp.service.OtpService;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
-    
-    private final OtpService otpService;
-    // Redis for tracking verified emails
-    private final StringRedisTemplate redisTemplate;
+    @Autowired
+    private UserRepository userRepository;     
 
-    private static final String EMAIL_VERIFIED_PREFIX = "email_verified:";
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private JwtUtil jwtUtil;
     
-    // --------------- Sending OTP on email for Registration ----------------
-    @Override
-    public void sendRegistrationOtp(String email) {
-        if (userRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("Email is already registered.");
-        }
-        otpService.generateAndSendOtp(email);
-    }
+    @Autowired
+    private OtpService otpService;  // add this field at the top with other @Autowired fields
+    
+    @Autowired
+    private PasswordResetTokenRepository passwordResetTokenRepository;
 
-    // ----------------- Verifying OTP ------------------------------
+    @Autowired
+    private JavaMailSender mailSender;
+
+    //  register()
     @Override
-    public boolean verifyRegistrationOtp(String email, String otp) {
-        boolean valid = otpService.verifyOtp(email, otp);
-        if (valid) {
-            // Mark email as verified in Redis for 30 mins so register can proceed
-            redisTemplate.opsForValue().set(
-                EMAIL_VERIFIED_PREFIX + email,
-                "true",
-                30,
-                java.util.concurrent.TimeUnit.MINUTES
-            );
-        }
-        return valid;
-    }
-    
-    // ------------------ Register User with Role(PROVIDER, PATIENT, ADMIN) -------------------
-    @Override
-    @Transactional
-    public UserResponse register(RegisterRequest request) {
-    	// Check OTP was verified
-        String verified = redisTemplate.opsForValue()
-                .get(EMAIL_VERIFIED_PREFIX + request.getEmail());
-        if (verified == null) {
-            throw new IllegalStateException(
-                "Email not verified. Please verify your email with OTP first.");
-        }
-        
+    public User register(RegisterRequest request) {
+
+        // Check duplicate email
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Email already registered");
+        	throw new DuplicateResourceException(
+        		    "User", "email", request.getEmail()
+        		);
         }
+
         User user = User.builder()
                 .fullName(request.getFullName())
                 .email(request.getEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .phone(request.getPhone())
                 .role(request.getRole())
-                .provider(User.OAuthProvider.LOCAL)
                 .isActive(true)
                 .build();
-        User saved = userRepository.save(user);
-        // Clean up the verified flag
-        redisTemplate.delete(EMAIL_VERIFIED_PREFIX + request.getEmail());
-        log.info("New user registered: {} with role {}", saved.getEmail(), saved.getRole());
-        return mapToUserResponse(saved);
+
+        return userRepository.save(user);
     }
 
-    // -------------------- Login --------------------------
+    //  login()
     @Override
     public AuthResponse login(LoginRequest request) {
+
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        if (!user.getIsActive()) {
-            throw new IllegalStateException("Account is deactivated");
+        		.orElseThrow(() -> new ResourceNotFoundException(
+        			    "User", "email", request.getEmail()
+        			));
+
+        if (!user.isActive()) {
+        	throw new UnauthorizedException(
+        		    "Your account has been deactivated. " +
+        		    "Please contact admin to reactivate."
+        		);
         }
+
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new IllegalArgumentException("Invalid credentials");
+        	throw new UnauthorizedException(
+        		    "Invalid email or password. Please try again."
+        		);
         }
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name(), user.getUserId());
-        return AuthResponse.builder()
-                .token(token)
-                .tokenType("Bearer")
-                .email(user.getEmail())
-                .role(user.getRole().name())
-                .userId(user.getUserId())
+
+        String token = jwtUtil.generateToken(
+                user.getEmail(),
+                user.getRole(),
+                user.getUserId()
+        );
+
+        return new AuthResponse(
+                token,
+                user.getRole(),
+                user.getUserId(),
+                user.getFullName(),
+                "Login successful"
+        );
+    }
+    
+ // Add this method to AuthService.java
+    public User registerAdmin(RegisterAdminRequest request, String adminSecretCode) {
+        // Validate secret code
+        if (!request.getAdminCode().equals(adminSecretCode)) {
+            throw new RuntimeException("Invalid admin code");
+        }
+
+        // Check if email exists
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new RuntimeException("Email already registered");
+        }
+
+        // Create admin user (same logic as normal registration)
+        User admin = User.builder()
+                .fullName(request.getFullName())
+                .email(request.getEmail())
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .role("Admin")
+                .phone("")
+                .isActive(true)
+                .provider(null)
                 .build();
+
+        return userRepository.save(admin);
     }
 
+    // Google OAuth2 — find existing user or create new one with chosen role
+    @Override
+    public User findOrCreateGoogleUser(String email, String fullName,
+                                       String picture, String provider, String role) {
+
+        // If user already exists (e.g. came back and picked role again) just return them
+        return userRepository.findByEmail(email).orElseGet(() -> {
+
+            // Validate role — only Patient or Provider allowed via Google
+            if (!role.equals("Patient") && !role.equals("Provider")) {
+                throw new BadRequestException("Invalid role selected. Must be Patient or Provider.");
+            }
+
+            User newUser = User.builder()
+                    .email(email)
+                    .fullName(fullName)
+                    .passwordHash("")         // no password for Google users
+                    .phone("")
+                    .role(role)               // role chosen by user on select-role page
+                    .provider(provider)       // "google"
+                    .isActive(true)
+                    .profilePicUrl(picture)
+                    .build();
+
+            return userRepository.save(newUser);
+        });
+    }
+
+    // logout()
+    @Override
+    public void logout(String token) {
+        // Stateless JWT — client discards token
+        // Production: add token to Redis blacklist
+    }
+
+    // validateToken()
     @Override
     public boolean validateToken(String token) {
         return jwtUtil.validateToken(token);
     }
 
+    //  refreshToken()
     @Override
-    public String refreshToken(String oldToken) {
-        if (!jwtUtil.validateToken(oldToken)) {
-            throw new IllegalArgumentException("Invalid or expired token");
+    public String refreshToken(String token) {
+        if (!jwtUtil.validateToken(token)) {
+        	throw new UnauthorizedException(
+        		    "Invalid or expired token. Please login again."
+        		);
         }
-        String email = jwtUtil.extractEmail(oldToken);
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        return jwtUtil.generateToken(user.getEmail(), user.getRole().name(), user.getUserId());
+        String email  = jwtUtil.extractEmail(token);
+        String role   = jwtUtil.extractRole(token);
+        int userId    = jwtUtil.extractUserId(token);
+        return jwtUtil.generateToken(email, role, userId);
+    }
+
+    // getUserByEmail()
+    @Override
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email)
+        		.orElseThrow(() -> new ResourceNotFoundException(
+        			    "User", "email", email
+        			));
+    }
+
+    //  getUserById()
+    @Override
+    public User getUserById(int userId) {
+        return userRepository.findByUserId(userId)
+        		.orElseThrow(() -> new ResourceNotFoundException(
+                	    "User", "id", userId
+                		));   
+    }
+
+    // updateProfile()
+    @Override
+    public User updateProfile(int userId, User updatedUser) {
+        User existing = getUserById(userId);
+        existing.setFullName(updatedUser.getFullName());
+        existing.setPhone(updatedUser.getPhone());
+        existing.setProfilePicUrl(updatedUser.getProfilePicUrl());
+        return userRepository.save(existing);
     }
 
     @Override
-    public UserResponse getUserByEmail(String email) {
-        return mapToUserResponse(userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email)));
-    }
-
-    @Override
-    public UserResponse getUserById(Long userId) {
-        return mapToUserResponse(userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId)));
-    }
-
-    // -------------------- Update some fields of profile --------------------
-    @Override
-    @Transactional
-    public UserResponse updateProfile(Long userId, UpdateProfileRequest request) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
-        if (request.getFullName() != null) user.setFullName(request.getFullName());
-        if (request.getPhone() != null) user.setPhone(request.getPhone());
-        if (request.getProfilePicUrl() != null) user.setProfilePicUrl(request.getProfilePicUrl());
-        return mapToUserResponse(userRepository.save(user));
-    }
-
-    // --------------------- Change Old Password ----------------------
-    @Override
-    @Transactional
-    public void changePassword(Long userId, String oldPassword, String newPassword) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
-        if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
-            throw new IllegalArgumentException("Current password is incorrect");
+    public void changePassword(int userId, String newPassword) {
+        
+        // find user — throws ResourceNotFoundException if not found
+        User user = getUserById(userId);
+        
+        // validate new password is not empty
+        if (newPassword == null || newPassword.trim().isEmpty()) {
+            throw new BadRequestException(
+                "New password cannot be empty."
+            );
         }
+        
+        // validate minimum password length
+        if (newPassword.length() < 6) {
+            throw new BadRequestException(
+                "Password must be at least 6 characters long."
+            );
+        }
+        
+        // encode new password with BCrypt
         user.setPasswordHash(passwordEncoder.encode(newPassword));
+        
+        
+        // save updated user
         userRepository.save(user);
     }
-
-    // -------------------- Deactivate Account ------------------------
+    //  deactivateAccount()
     @Override
-    @Transactional
-    public void deactivateAccount(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
-        user.setIsActive(false);
+    public void deactivateAccount(int userId) {
+        User user = getUserById(userId);
+        user.setActive(false);
         userRepository.save(user);
-        log.info("Account deactivated for userId: {}", userId);
     }
     
-    // ---------------- Request OTP for Deleting Account ---------------------
+   
+
+    // sendOtp() — delegates to OtpService
     @Override
-    public void requestDeleteAccountOtp(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
-
-        if (!user.getIsActive()) {
-            throw new IllegalStateException("Account is already deactivated");
-        }
-
+    public void sendOtp(String email) {
         otpService.generateAndSendOtp(email);
-        log.info("Delete account OTP sent to {}", email);
     }
 
-    // ----------------- Registered or Logged-In user can delete his/her own account -----------------
+    // verifyOtp() — delegates to OtpService
     @Override
-    @Transactional
-    public void deleteOwnAccountWithOtp(String email, String otp) {
+    public boolean verifyOtp(String email, String otp) {
+        return otpService.verifyOtp(email, otp);
+    }
+    
+ // forgotPassword() — generate token + OTP, send email, print in console
+    @Override
+    public void forgotPassword(String email) {
+
+        // Check user exists
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User", "email", email));
 
-        boolean valid = otpService.verifyOtp(email, otp);
-        if (!valid) {
-            throw new IllegalArgumentException("Invalid or expired OTP");
-        }
+        // Delete any existing reset tokens for this email
+        passwordResetTokenRepository.deleteAllByEmail(email);
 
-        userRepository.delete(user);
+        // Generate unique reset token
+        String token = UUID.randomUUID().toString();
 
-        redisTemplate.delete("otp:" + email);
-        redisTemplate.delete("email_verified:" + email);
+        // Generate 6-digit OTP
+        String otp = String.format("%06d", new java.util.Random().nextInt(999999));
 
-        log.info("User deleted own account for email: {}", email);
-    }
-
-    // ----------------- Admin can also delete account of any user --------------
-    @Override
-    @Transactional
-    public void adminDeleteUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
-
-        // Protection: prevent deleting admin account
-        if (user.getRole() == User.Role.ADMIN) {
-            throw new IllegalStateException("Admin accounts cannot be deleted through this endpoint");
-        }
-        userRepository.delete(user);
-
-        redisTemplate.delete("otp:" + user.getEmail());
-        redisTemplate.delete("email_verified:" + user.getEmail());
-
-        log.info("Admin deleted user account for userId: {}, email: {}", userId, user.getEmail());
-    }
-
-    // ------------------ Logout -----------------------------
-    @Override
-    public void logout(String token) {
-        // In production: add token to a Redis blacklist with TTL = remaining expiry
-        log.info("User logged out");
-    }
-
-    private UserResponse mapToUserResponse(User user) {
-        return UserResponse.builder()
-                .userId(user.getUserId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .role(user.getRole().name())
-                .isActive(user.getIsActive())
-                .profilePicUrl(user.getProfilePicUrl())
-                .createdAt(user.getCreatedAt())
+        // Save to DB
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .email(email)
+                .token(token)
+                .otp(otp)
+                .used(false)
                 .build();
+        passwordResetTokenRepository.save(resetToken);
+
+        // Build reset link
+        String resetLink = "http://localhost:5173/reset-password?token=" + token;
+
+        // ── Send email ─────────────────────────────────────────────────
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(email);
+            message.setSubject("MediBook — Reset Your Password");
+            message.setText(
+                "Hello " + user.getFullName() + ",\n\n" +
+                "You requested to reset your MediBook password.\n\n" +
+                "Click the link below to reset your password:\n" +
+                resetLink + "\n\n" +
+                "Your OTP verification code: " + otp + "\n\n" +
+                "This link and OTP are valid for 15 minutes only.\n" +
+                "If you did not request this, please ignore this email.\n\n" +
+                "— MediBook Team"
+            );
+            mailSender.send(message);
+            System.out.println("[AuthService] Reset email sent to: " + email);
+        } catch (Exception e) {
+            System.err.println("[AuthService] Email sending failed: " + e.getMessage());
+        }
+
+        // ── Print in console for testing ───────────────────────────────
+        System.out.println("========================================");
+        System.out.println("  MediBook Password Reset");
+        System.out.println("  Email : " + email);
+        System.out.println("  Token : " + token);
+        System.out.println("  OTP   : " + otp);
+        System.out.println("  Link  : " + resetLink);
+        System.out.println("  Valid for 15 minutes");
+        System.out.println("========================================");
+    }
+
+    // verifyResetOtp() — validate token + OTP before allowing password reset
+    @Override
+    public void verifyResetOtp(String token, String otp) {
+
+        PasswordResetToken resetToken = passwordResetTokenRepository
+                .findByToken(token)
+                .orElseThrow(() -> new BadRequestException(
+                        "Invalid or expired reset link. Please request a new one."));
+
+        // Check already used
+        if (resetToken.isUsed()) {
+            throw new BadRequestException(
+                    "This reset link has already been used. Please request a new one.");
+        }
+
+        // Check expired
+        if (resetToken.getExpiresAt().isBefore(java.time.LocalDateTime.now())) {
+            passwordResetTokenRepository.delete(resetToken);
+            throw new BadRequestException(
+                    "Reset link has expired. Please request a new one.");
+        }
+
+        // Check OTP matches
+        if (!resetToken.getOtp().equals(otp)) {
+            throw new BadRequestException("Invalid OTP. Please try again.");
+        }
+
+        // OTP verified — mark token as verified (not used yet, used after password set)
+        resetToken.setUsed(false);
+        passwordResetTokenRepository.save(resetToken);
+    }
+
+    // resetPassword() — save new password after OTP verified
+    @Override
+    public void resetPassword(String token, String newPassword) {
+
+        PasswordResetToken resetToken = passwordResetTokenRepository
+                .findByToken(token)
+                .orElseThrow(() -> new BadRequestException(
+                        "Invalid or expired reset link. Please request a new one."));
+
+        // Check expired
+        if (resetToken.getExpiresAt().isBefore(java.time.LocalDateTime.now())) {
+            passwordResetTokenRepository.delete(resetToken);
+            throw new BadRequestException(
+                    "Reset link has expired. Please request a new one.");
+        }
+
+        // Validate new password
+        if (newPassword == null || newPassword.trim().isEmpty()) {
+            throw new BadRequestException("Password cannot be empty.");
+        }
+        if (newPassword.length() < 6) {
+            throw new BadRequestException(
+                    "Password must be at least 6 characters long.");
+        }
+
+        // Find user and update password
+        User user = userRepository.findByEmail(resetToken.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User", "email", resetToken.getEmail()));
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // Mark token as used and delete
+        passwordResetTokenRepository.delete(resetToken);
+
+        System.out.println("[AuthService] Password reset successful for: " + resetToken.getEmail());
     }
 }

@@ -1,15 +1,22 @@
 package com.medibook.auth.dto.response;
 
+import lombok.AllArgsConstructor;
 
-import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
-//AuthResponse.java
-@Data @Builder
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
 public class AuthResponse {
- private String token;
- private String tokenType;
- private String email;
- private String role;
- private Long userId;
+
+    private String token;
+
+    private String role;
+
+    private int userId;
+
+    private String fullName;
+
+    private String message;
 }

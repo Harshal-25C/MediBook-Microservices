@@ -1,23 +1,33 @@
 // RegisterRequest.java
 package com.medibook.auth.dto.request;
-import com.medibook.auth.entity.User;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
 public class RegisterRequest {
-    @NotBlank @Size(min = 2, max = 100)
+
+    @NotBlank(message = "Full name is required")
     private String fullName;
 
-    @NotBlank @Email
+    @NotBlank(message = "Email is required")
+    @Email(message = "Valid email is required")
     private String email;
 
-    @NotBlank @Size(min = 8, message = "Password must be at least 8 characters")
+    @NotBlank(message = "Password is required")
+    @Size(min = 6, message = "Password must be at least 6 characters")
     private String password;
 
-    @Pattern(regexp = "^[6-9]\\d{9}$", message = "Invalid Indian phone number")
     private String phone;
 
-    @NotNull
-    private User.Role role;
+    // Only Patient or Provider allowed
+    // Admin is created manually in database
+    @NotBlank(message = "Role is required")
+    @Pattern(
+        regexp = "Patient|Provider",
+        message = "Role must be Patient or Provider"
+    )
+    private String role;
 }
