@@ -1,182 +1,186 @@
 package com.medibook.provider.resource;
  
-import com.medibook.provider.dto.request.ProviderRegistrationRequest;
-import com.medibook.provider.dto.request.UpdateProviderRequest;
-import com.medibook.provider.dto.response.ProviderResponse;
-import com.medibook.provider.service.ProviderService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
- 
 import java.util.List;
 import java.util.Map;
- 
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.medibook.provider.client.UserClient;
+import com.medibook.provider.dto.request.ProviderRequest;
+import com.medibook.provider.dto.response.ProviderDetailResponse;
+import com.medibook.provider.dto.response.UserDto;
+import com.medibook.provider.entity.Provider;
+import com.medibook.provider.service.ProviderService;
+
+import jakarta.validation.Valid;
+
+/**
+ * REST Controller for Provider.
+ *
+ * Microservices change: UserRepository replaced with UserClient (Feign).
+ * UserClient calls auth-service GET /auth/profile/{userId} to get
+ * fullName, email, phone, profilePicUrl for ProviderDetailResponse.
+ *
+ * All endpoint URLs stay identical — frontend zero changes.
+ */
 @RestController
-@RequestMapping("/api/v1/providers")
-@RequiredArgsConstructor
-@Tag(name = "Providers",
-     description = "Provider profile management, search, verification, and rating")
+@RequestMapping("/providers")
 public class ProviderResource {
- 
-    private final ProviderService providerService;
- 
-    // ── POST /api/v1/providers — Register provider profile ────────────────
- 
-    @PostMapping
-    @Operation(summary = "Register a new provider profile (PROVIDER role only)")
-    @PreAuthorize("hasRole('PROVIDER') or hasRole('ADMIN')")
-    public ResponseEntity<ProviderResponse> register(
-            @Valid @RequestBody ProviderRegistrationRequest request) {
+
+    @Autowired
+    private ProviderService providerService;
+
+    /**
+     * Replaces direct @Autowired UserRepository.
+     * Calls auth-service via Feign: GET /auth/profile/{userId}
+     */
+    @Autowired
+    private UserClient userClient;
+
+    @PostMapping("/register")
+    public ResponseEntity<?> registerProvider(@Valid @RequestBody ProviderRequest request) {
+        Provider provider = providerService.registerProvider(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(providerService.registerProvider(request));
+                .body(Map.of(
+                        "message", "Provider profile created successfully. Waiting for admin verification.",
+                        "providerId", provider.getProviderId(),
+                        "isVerified", provider.isVerified()
+                ));
     }
- 
-    // ── GET /api/v1/providers — Get all providers (public) ────────────────
- 
-    @GetMapping
-    @Operation(summary = "Get all provider profiles (public — guests can browse)")
-    public ResponseEntity<List<ProviderResponse>> getAll() {
-        return ResponseEntity.ok(providerService.getAllProviders());
-    }
- 
-    // ── GET /api/v1/providers/verified — Get all verified providers ────────
- 
-    @GetMapping("/verified")
-    @Operation(summary = "Get all admin-verified providers")
-    public ResponseEntity<List<ProviderResponse>> getVerified() {
-        return ResponseEntity.ok(providerService.getVerifiedProviders());
-    }
- 
-    // ── GET /api/v1/providers/{providerId} — Get by provider ID ───────────
- 
+
     @GetMapping("/{providerId}")
-    @Operation(summary = "Get provider profile by providerId")
-    public ResponseEntity<ProviderResponse> getById(@PathVariable Long providerId) {
-        return ResponseEntity.ok(providerService.getProviderById(providerId));
+    public ResponseEntity<ProviderDetailResponse> getById(@PathVariable int providerId) {
+        Provider provider = providerService.getProviderById(providerId);
+
+        // Feign call → auth-service GET /auth/profile/{userId}
+        // Replaces: userRepository.findByUserId(provider.getUserId())
+        UserDto user = getUserSafe(provider.getUserId(), providerId);
+
+        ProviderDetailResponse detail = buildDetailResponse(provider, user);
+        return ResponseEntity.ok(detail);
     }
- 
-    // ── GET /api/v1/providers/user/{userId} — Get by userId ───────────────
- 
+
     @GetMapping("/user/{userId}")
-    @Operation(summary = "Get provider profile by userId (from auth-service)")
-    public ResponseEntity<ProviderResponse> getByUserId(@PathVariable Long userId) {
+    public ResponseEntity<Provider> getByUserId(@PathVariable int userId) {
         return ResponseEntity.ok(providerService.getProviderByUserId(userId));
     }
- 
-    // ── GET /api/v1/providers/specialization/{spec} — Filter by spec ──────
- 
+
     @GetMapping("/specialization/{specialization}")
-    @Operation(summary = "Get providers by specialization (public)")
-    public ResponseEntity<List<ProviderResponse>> getBySpecialization(
-            @PathVariable String specialization) {
+    public ResponseEntity<List<Provider>> getBySpecialization(@PathVariable String specialization) {
         return ResponseEntity.ok(providerService.getBySpecialization(specialization));
     }
- 
-    // ── GET /api/v1/providers/search?q=... — Full-text search ─────────────
- 
+
     @GetMapping("/search")
-    @Operation(summary = "Search providers by name, specialization, or clinic (public)")
-    public ResponseEntity<List<ProviderResponse>> search(
-            @RequestParam String q) {
-        return ResponseEntity.ok(providerService.searchProviders(q));
+    public ResponseEntity<List<Provider>> search(@RequestParam String keyword) {
+        return ResponseEntity.ok(providerService.searchProviders(keyword));
     }
- 
-    // ── GET /api/v1/providers/filter — Advanced filter ────────────────────
- 
-    @GetMapping("/filter")
-    @Operation(summary = "Filter verified providers by specialization, location, rating (public)")
-    public ResponseEntity<List<ProviderResponse>> filter(
-            @RequestParam(required = false) String specialization,
-            @RequestParam(required = false) String location,
-            @RequestParam(required = false) Double minRating) {
-        return ResponseEntity.ok(
-                providerService.filterProviders(specialization, location, minRating));
+
+    @GetMapping("/available")
+    public ResponseEntity<List<Provider>> getAvailable() {
+        return ResponseEntity.ok(providerService.getVerifiedAndAvailableProviders());
     }
- 
-    // ── GET /api/v1/providers/count?specialization=... ────────────────────
- 
-    @GetMapping("/count")
-    @Operation(summary = "Count providers by specialization")
-    public ResponseEntity<Map<String, Integer>> countBySpecialization(
-            @RequestParam String specialization) {
-        int count = providerService.countBySpecialization(specialization);
-        return ResponseEntity.ok(Map.of("specialization", specialization.length(),
-                "count", count));
+
+    @GetMapping("/all")
+    public ResponseEntity<List<ProviderDetailResponse>> getAll() {
+        List<Provider> providers = providerService.getAllProviders();
+
+        List<ProviderDetailResponse> result = providers.stream().map(provider -> {
+            // Feign call per provider → auth-service GET /auth/profile/{userId}
+            UserDto user = getUserSafe(provider.getUserId(), provider.getProviderId());
+            return buildDetailResponse(provider, user);
+        }).toList();
+
+        return ResponseEntity.ok(result);
     }
- 
-    // ── PUT /api/v1/providers/{providerId} — Update profile ───────────────
- 
+
     @PutMapping("/{providerId}")
-    @Operation(summary = "Update provider profile (PROVIDER or ADMIN)")
-    @PreAuthorize("hasRole('PROVIDER') or hasRole('ADMIN')")
-    public ResponseEntity<ProviderResponse> update(
-            @PathVariable Long providerId,
-            @Valid @RequestBody UpdateProviderRequest request) {
+    public ResponseEntity<Provider> updateProvider(
+            @PathVariable int providerId,
+            @Valid @RequestBody ProviderRequest request) {
         return ResponseEntity.ok(providerService.updateProvider(providerId, request));
     }
- 
-    // ── PUT /api/v1/providers/{providerId}/verify — Admin verifies ─────────
- 
+
     @PutMapping("/{providerId}/verify")
-    @Operation(summary = "Admin: verify provider credentials and approve listing")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, String>> verify(@PathVariable Long providerId) {
-        providerService.verifyProvider(providerId);
-        return ResponseEntity.ok(Map.of(
-                "message", "Provider " + providerId + " has been verified successfully."));
+    public ResponseEntity<Provider> verifyProvider(@PathVariable int providerId) {
+        Provider updatedProvider = providerService.verifyProvider(providerId);
+        return ResponseEntity.ok(updatedProvider);
     }
- 
-    // ── PUT /api/v1/providers/{providerId}/reject — Admin rejects ──────────
- 
-    @PutMapping("/{providerId}/reject")
-    @Operation(summary = "Admin: reject / unverify a provider")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, String>> reject(@PathVariable Long providerId) {
-        providerService.rejectProvider(providerId);
-        return ResponseEntity.ok(Map.of(
-                "message", "Provider " + providerId + " has been rejected."));
-    }
- 
-    // ── PUT /api/v1/providers/{providerId}/availability — Toggle availability
- 
+
     @PutMapping("/{providerId}/availability")
-    @Operation(summary = "Set provider availability (PROVIDER or ADMIN)")
-    @PreAuthorize("hasRole('PROVIDER') or hasRole('ADMIN')")
-    public ResponseEntity<Map<String, String>> setAvailability(
-            @PathVariable Long providerId,
-            @RequestParam boolean available) {
-        providerService.setAvailability(providerId, available);
-        return ResponseEntity.ok(Map.of(
-                "message", "Availability set to " + available
-                        + " for providerId: " + providerId));
+    public ResponseEntity<?> setAvailability(
+            @PathVariable int providerId,
+            @RequestParam boolean isAvailable) {
+        providerService.setAvailability(providerId, isAvailable);
+        String message = isAvailable
+                ? "Doctor is now available for appointments."
+                : "Doctor is now unavailable for appointments.";
+        return ResponseEntity.ok(Map.of("message", message));
     }
- 
-    // ── PUT /api/v1/providers/{providerId}/rating — Update avg rating ──────
- 
-    @PutMapping("/{providerId}/rating")
-    @Operation(summary = "Update provider average rating (called by review-service)")
-    public ResponseEntity<Map<String, String>> updateRating(
-            @PathVariable Long providerId,
-            @RequestParam double rating) {
-        providerService.updateRating(providerId, rating);
-        return ResponseEntity.ok(Map.of(
-                "message", "Rating updated to " + rating
-                        + " for providerId: " + providerId));
-    }
- 
-    // ── DELETE /api/v1/providers/{providerId} — Delete provider ───────────
- 
+
     @DeleteMapping("/{providerId}")
-    @Operation(summary = "Delete provider profile (ADMIN only)")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, String>> delete(@PathVariable Long providerId) {
+    public ResponseEntity<?> deleteProvider(@PathVariable int providerId) {
         providerService.deleteProvider(providerId);
-        return ResponseEntity.ok(Map.of(
-                "message", "Provider " + providerId + " deleted successfully."));
+        return ResponseEntity.ok(Map.of("message", "Provider deleted successfully."));
+    }
+
+    /**
+     * INTERNAL endpoint — called only by review-service via Feign.
+     * Updates doctor avgRating after a review is submitted/updated/deleted.
+     * URL: PUT /providers/{providerId}/rating?avgRating=4.5
+     */
+    @PutMapping("/{providerId}/rating")
+    public ResponseEntity<?> updateRating(
+            @PathVariable int providerId,
+            @RequestParam double avgRating) {
+        providerService.updateRating(providerId, avgRating);
+        return ResponseEntity.ok(Map.of("message", "Rating updated."));
+    }
+
+    // ── Helper methods ────────────────────────────────────────────────
+
+    /**
+     * Safe Feign call — returns null UserDto instead of crashing
+     * if auth-service is temporarily down.
+     */
+    private UserDto getUserSafe(int userId, int providerId) {
+        try {
+            return userClient.getUserById(userId);
+        } catch (Exception e) {
+            System.err.println("[ProviderResource] Could not fetch user " + userId
+                    + " for provider " + providerId + ": " + e.getMessage());
+            return null;
+        }
+    }
+
+    private ProviderDetailResponse buildDetailResponse(Provider provider, UserDto user) {
+        return ProviderDetailResponse.builder()
+                .providerId(provider.getProviderId())
+                .userId(provider.getUserId())
+                .specialization(provider.getSpecialization())
+                .qualification(provider.getQualification())
+                .experienceYears(provider.getExperienceYears())
+                .bio(provider.getBio())
+                .clinicName(provider.getClinicName())
+                .clinicAddress(provider.getClinicAddress())
+                .avgRating(provider.getAvgRating())
+                .isVerified(provider.isVerified())
+                .isAvailable(provider.isAvailable())
+                .createdAt(provider.getCreatedAt())
+                .fullName(user != null ? user.getFullName() : "Provider #" + provider.getProviderId())
+                .email(user != null ? user.getEmail() : "")
+                .phone(user != null ? user.getPhone() : "")
+                .profilePicUrl(user != null ? user.getProfilePicUrl() : "")
+                .build();
     }
 }
