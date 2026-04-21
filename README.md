@@ -1,17 +1,17 @@
-# 🏥 MediBook — API Gateway
+# 🏥 MediBook — Provider Service
 
 <div align="center">
 
 ```
- █████╗ ██████╗ ██╗     ██████╗  █████╗ ████████╗███████╗██╗    ██╗ █████╗ ██╗   ██╗
-██╔══██╗██╔══██╗██║    ██╔════╝ ██╔══██╗╚══██╔══╝██╔════╝██║    ██║██╔══██╗╚██╗ ██╔╝
-███████║██████╔╝██║    ██║  ███╗███████║   ██║   █████╗  ██║ █╗ ██║███████║ ╚████╔╝
-██╔══██║██╔═══╝ ██║    ██║   ██║██╔══██║   ██║   ██╔══╝  ██║███╗██║██╔══██║  ╚██╔╝
-██║  ██║██║     ██║    ╚██████╔╝██║  ██║   ██║   ███████╗╚███╔███╔╝██║  ██║   ██║
-╚═╝  ╚═╝╚═╝     ╚═╝     ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚══════╝ ╚══╝╚══╝ ╚═╝  ╚═╝   ╚═╝
+██████╗ ██████╗  ██████╗ ██╗   ██╗██╗██████╗ ███████╗██████╗
+██╔══██╗██╔══██╗██╔═══██╗██║   ██║██║██╔══██╗██╔════╝██╔══██╗
+██████╔╝██████╔╝██║   ██║██║   ██║██║██║  ██║█████╗  ██████╔╝
+██╔═══╝ ██╔══██╗██║   ██║╚██╗ ██╔╝██║██║  ██║██╔══╝  ██╔══██╗
+██║     ██║  ██║╚██████╔╝ ╚████╔╝ ██║██████╔╝███████╗██║  ██║
+╚═╝     ╚═╝  ╚═╝ ╚═════╝   ╚═══╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
 ```
 
-### `api-gateway` — Single Entry Point for the MediBook Platform
+### `provider-service` — Provider Profiles, Search, Verification & Rating
 
 *Book Smarter. Heal Faster. Care Better.*
 
@@ -19,15 +19,14 @@
 
 ![Java](https://img.shields.io/badge/Java-17-orange?style=for-the-badge&logo=openjdk)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2.0-brightgreen?style=for-the-badge&logo=springboot)
-![Spring Cloud Gateway](https://img.shields.io/badge/Spring_Cloud_Gateway-2023.0.0-6DB33F?style=for-the-badge&logo=spring)
-![WebFlux](https://img.shields.io/badge/WebFlux-Reactive-blueviolet?style=for-the-badge&logo=spring)
-![Eureka](https://img.shields.io/badge/Eureka_Client-Netflix-red?style=for-the-badge&logo=netflix)
+![Spring Security](https://img.shields.io/badge/Spring_Security-6-green?style=for-the-badge&logo=springsecurity)
+![MySQL](https://img.shields.io/badge/MySQL-8.0-blue?style=for-the-badge&logo=mysql)
 ![JWT](https://img.shields.io/badge/JWT-0.11.5-black?style=for-the-badge&logo=jsonwebtokens)
-![Lombok](https://img.shields.io/badge/Lombok-1.18.30-pink?style=for-the-badge)
+![Swagger](https://img.shields.io/badge/Swagger-OpenAPI_3.0-85EA2D?style=for-the-badge&logo=swagger)
 ![Maven](https://img.shields.io/badge/Maven-3.9+-C71A36?style=for-the-badge&logo=apachemaven)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)
-![Port](https://img.shields.io/badge/Port-8080-purple?style=for-the-badge)
-![Branch](https://img.shields.io/badge/Branch-feature/api--gateway-yellow?style=for-the-badge&logo=git)
+![Port](https://img.shields.io/badge/Port-8082-purple?style=for-the-badge)
+![Branch](https://img.shields.io/badge/Branch-feature/provider--service-yellow?style=for-the-badge&logo=git)
 
 </div>
 
@@ -40,48 +39,36 @@
 - [Tech Stack](#-tech-stack)
 - [Project Structure](#-project-structure)
 - [Features](#-features)
-- [Route Table](#-route-table)
-- [JWT Filter — How It Works](#-jwt-filter--how-it-works)
-- [Public vs Protected Paths](#-public-vs-protected-paths)
-- [Downstream Headers Forwarded](#-downstream-headers-forwarded)
-- [CORS Configuration](#-cors-configuration)
+- [Database Schema](#-database-schema)
 - [Prerequisites](#-prerequisites)
 - [Environment Variables](#-environment-variables)
 - [How to Run](#-how-to-run)
-- [Startup Order](#-startup-order)
-- [Postman Testing via Gateway](#-postman-testing-via-gateway)
-- [Actuator Endpoints](#-actuator-endpoints)
+- [Security Architecture](#-security-architecture)
+- [API Reference](#-api-reference)
+- [Postman Testing Guide](#-postman-testing-guide)
+- [Test Cases](#-test-cases)
+- [Error Responses](#-error-responses)
+- [Swagger UI](#-swagger-ui)
 - [Common Issues & Fixes](#-common-issues--fixes)
 
 ---
 
 ## 📖 Overview
 
-The **API Gateway** is the **single entry point** for the entire MediBook platform. Every request from any client — whether a React frontend, mobile app, or Postman — hits port `8080` first. The gateway then:
+The **Provider Service** manages the complete lifecycle of healthcare provider profiles on the MediBook platform. It handles everything from initial profile creation to admin verification, availability management, and rating aggregation.
 
-1. **Validates the JWT token** on protected routes using its own `JwtAuthenticationFilter`
-2. **Routes the request** to the correct downstream microservice using Eureka-based load balancing
-3. **Forwards user context** (`X-User-Email`, `X-User-Role`, `X-User-Id`) as headers to downstream services so they know who is calling
-4. **Handles CORS** globally so the React frontend can communicate without browser errors
+Per the MediBook case study (PDF Section 4.2), this service:
 
-No client should ever call a microservice directly on its own port. Everything goes through `localhost:8080`.
+- Stores specialization, qualifications, experience, clinic details, and aggregated rating
+- **Requires admin verification** before a provider appears in patient search results
+- Supports full-text search by name, specialization, or location
+- Exposes availability and verified-status flags
+- Is the only service that can be browsed by **unauthenticated guests** (PDF requirement)
 
 ```
-Client (React / Postman)
-         │
-         ▼ port 8080
-   [ API Gateway ]
-         │
-         ├── /api/v1/auth/**          →  auth-service            :8081
-         ├── /api/v1/providers/**     →  provider-service        :8082
-         ├── /api/v1/slots/**         →  schedule-service        :8083
-         ├── /api/v1/appointments/**  → appointment-service      :8084
-         ├── /api/v1/payments/**      →  payment-service         :8085
-         ├── /api/v1/reviews/**       →  review-service          :8086
-         ├── /api/v1/notifications/** → notification-service     :8087
-         ├── /api/v1/records/**       →  record-service          :8088
-         ├── /api/v1/admin/**         →  admin-service           :8089
-         └── /api/v1/gateway/**       →  payment-gateway-service :8090
+Guest/Patient → search providers → filter by spec/location/rating → view profile → book appointment
+                                          ↑
+                              provider-service answers all these
 ```
 
 ---
@@ -89,56 +76,34 @@ Client (React / Postman)
 ## 🗺 Architecture Position
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        MediBook Microservices Platform                      │
-│                                                                             │
-│  ┌──────────────────────────────────────────────────────────┐               │
-│  │                   CLIENT LAYER                           │               │
-│  │   React (localhost:3000)  │  Vite (localhost:5173)       │               │
-│  │   Postman / Mobile App    │  Any HTTP client             │               │
-│  └───────────────────────────┬──────────────────────────────┘               │
-│                              │ ALL requests → port 8080                     │
-│                              ▼                                              │
-│  ┌───────────────────────────────────────────────────────────┐              │
-│  │               API GATEWAY  (THIS SERVICE)                 │              │
-│  │                    port: 8080                             │              │
-│  │                                                           │              │
-│  │  ① JwtAuthenticationFilter  (GlobalFilter, order = -1)    │              │
-│  │     • Checks Bearer token on protected paths              │              │
-│  │     • Parses JWT → extracts email, role, userId           │              │
-│  │     • Forwards as X-User-* headers to downstream          │              │
-│  │     • Returns 401 if token missing or invalid             │              │
-│  │                                                           │              │
-│  │  ② Route Predicates (Path matching)                       │              │
-│  │     • /api/v1/auth/**  → lb://auth-service                │              │
-│  │     • /api/v1/providers/** → lb://provider-service        │              │
-│  │     • ... (10 routes total)                               │              │
-│  │                                                           │              │
-│  │  ③ Load Balancing (lb://)                                 │              │
-│  │     • Resolves service hostnames via Eureka               │              │
-│  │     • Distributes load if multiple instances running      │              │
-│  └──────────────┬────────────────────────────────────────────┘              │
-│                 │ registers & discovers services                            │
-│                 ▼                                                           │
-│  ┌──────────────────────────┐                                               │
-│  │   Eureka Server  :8761   │ ← Service Registry                            │
-│  └──────────────────────────┘                                               │
-│                                                                             │
-│  DOWNSTREAM MICROSERVICES (each on its own port + own MySQL DB)             │
-│  ┌────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌───────────────┐   │
-│  │auth-service│ │provider-service │ │schedule-service │ │appt-service   │   │
-│  │  :8081     │ │  :8082          │ │  :8083          │ │  :8084        │   │
-│  └────────────┘ └─────────────────┘ └─────────────────┘ └───────────────┘   │
-│  ┌─────────────┐ ┌──────────────┐ ┌──────────────────┐ ┌───────────────┐    │
-│  │pay-service  │ │review-service│ │notification-svc  │ │record-service │    │
-│  │  :8085      │ │  :8086       │ │  :8087           │ │  :8088        │    │
-│  └─────────────┘ └──────────────┘ └──────────────────┘ └───────────────┘    │
-│  ┌──────────────┐ ┌──────────────────────┐                                  │
-│  │admin-service │ │payment-gateway-svc   │                                  │
-│  │  :8089       │ │  :8090               │                                  │
-│  └──────────────┘ └──────────────────────┘                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                    MediBook Microservices                            │
+│                                                                      │
+│  React Client / Postman                                              │
+│         │                                                            │
+│         ▼  port 8080                                                 │
+│  ┌──────────────┐                                                    │
+│  │  API Gateway │  validates JWT → injects X-User-* headers         │
+│  └──────┬───────┘                                                    │
+│         │  routes /api/v1/providers/**                               │
+│         ▼                                                            │
+│  ┌──────────────────┐  port 8082   ┌─────────────────┐             │
+│  │ provider-service │◄────────────►│   MySQL         │ provider_db │
+│  │   (THIS ONE)     │              └─────────────────┘             │
+│  └──────────────────┘                                               │
+│         │                                                            │
+│  Receives calls from:                                                │
+│  ├── auth-service   — after PROVIDER registers, creates profile     │
+│  ├── review-service — calls PUT /rating to update avgRating         │
+│  └── appointment-service — reads provider details for booking       │
+│                                                                      │
+│  ┌────────────────┐  port 8761                                      │
+│  │  Eureka Server │ ← provider-service registers here               │
+│  └────────────────┘                                                  │
+└──────────────────────────────────────────────────────────────────────┘
 ```
+
+**Microservice boundary note:** `provider_db` stores only provider-specific data. The `userId` column is a plain `Long` reference to `auth-service`'s users table — no JPA join, no cross-service foreign key. This is intentional microservice design.
 
 ---
 
@@ -148,242 +113,154 @@ Client (React / Postman)
 |-------|-----------|---------|---------|
 | **Language** | Java | 17 | Core language |
 | **Framework** | Spring Boot | 3.2.0 | Application framework |
-| **Gateway** | Spring Cloud Gateway | 2023.0.0 | Reactive routing + filtering |
-| **Reactive Runtime** | Project Reactor (WebFlux) | — | Non-blocking I/O — **NOT Servlet-based** |
-| **Service Discovery** | Spring Cloud Netflix Eureka Client | 2023.0.0 | Resolves `lb://service-name` to real IP:port |
-| **Token Validation** | JWT (jjwt) | 0.11.5 | Parse + validate Bearer tokens at gateway level |
-| **Boilerplate** | Lombok | 1.18.30 | `@Slf4j` logging |
-| **Monitoring** | Spring Boot Actuator | 3.2.0 | `/actuator/health`, `/actuator/gateway` |
+| **Security** | Spring Security | 6 | JWT-based stateless auth |
+| **JWT Validation** | jjwt | 0.11.5 | Validate tokens from auth-service |
+| **Database** | MySQL | 8.0 | Provider profile storage |
+| **ORM** | Spring Data JPA + Hibernate | 6.3.1 | Database abstraction |
+| **API Docs** | SpringDoc OpenAPI | 2.5.0 | Swagger UI |
 | **Build** | Maven | 3.9+ | Dependency management |
-
-> ⚠️ **Important:** Spring Cloud Gateway is built on **Spring WebFlux (Reactive)**, NOT Spring Web (Servlet). This means you **cannot** add `spring-boot-starter-web` to this module — it will cause a startup conflict.
+| **Boilerplate** | Lombok | 1.18.30 | Reduce boilerplate |
+| **Service Discovery** | Eureka Client | 2023.0.3 | Register with Eureka Server |
+| **Monitoring** | Spring Boot Actuator | 3.2.0 | Health, info, metrics |
+| **Dev Tools** | Spring DevTools | — | Hot reload |
 
 ---
 
 ## 📁 Project Structure
 
 ```
-api-gateway/
+provider-service/
 │
-├── 📄 pom.xml                                      ← Maven dependencies
+├── 📄 pom.xml                                        ← Maven dependencies
 │
 └── src/
     ├── main/
-    │   ├── java/com/medibook/gateway/
+    │   ├── java/com/medibook/provider/
     │   │   │
-    │   │   ├── 🚀 ApiGatewayApplication.java        ← Spring Boot entry point
+    │   │   ├── 🚀 ProviderServiceApplication.java    ← Entry point
     │   │   │      @SpringBootApplication
-    │   │   │      @EnableDiscoveryClient             ← registers with Eureka
+    │   │   │      @EnableScheduling
     │   │   │
-    │   │   └── filter/
-    │   │       └── JwtAuthenticationFilter.java      ← GlobalFilter, order = -1
-    │   │              Runs BEFORE all route filters
-    │   │              Validates JWT on protected paths
-    │   │              Forwards X-User-* headers downstream
+    │   │   ├── config/
+    │   │   │   ├── GatewayJwtAuthenticationFilter.java ← Dual-mode JWT filter
+    │   │   │   │     Scenario A: reads X-User-* headers (via API Gateway)
+    │   │   │   │     Scenario B: parses Bearer token (direct Postman call)
+    │   │   │   └── SecurityConfig.java               ← Public GET paths + STATELESS
+    │   │   │
+    │   │   ├── dto/
+    │   │   │   ├── request/
+    │   │   │   │   ├── ProviderRegistrationRequest.java ← userId, spec, qual, exp, bio, clinic
+    │   │   │   │   └── UpdateProviderRequest.java       ← all fields optional (partial update)
+    │   │   │   └── response/
+    │   │   │       └── ProviderResponse.java            ← full provider profile response
+    │   │   │
+    │   │   ├── entity/
+    │   │   │   └── Provider.java                     ← JPA entity → `providers` table
+    │   │   │         3 database indexes for performance
+    │   │   │         userId UNIQUE constraint
+    │   │   │
+    │   │   ├── exception/
+    │   │   │   ├── GlobalExceptionHandler.java       ← 404/400/409/validation handler
+    │   │   │   └── ResourceNotFoundException.java    ← 404 exception type
+    │   │   │
+    │   │   ├── repository/
+    │   │   │   └── ProviderRepository.java           ← 10 query methods + 3 @Query JPQL
+    │   │   │
+    │   │   ├── resource/
+    │   │   │   └── ProviderResource.java             ← REST controller, 15 endpoints
+    │   │   │
+    │   │   ├── service/
+    │   │   │   ├── ProviderService.java              ← Business contract (interface)
+    │   │   │   └── impl/
+    │   │   │       └── ProviderServiceImpl.java      ← Business logic, 15 methods
+    │   │   │
+    │   │   └── util/
+    │   │       └── JwtUtil.java                      ← extractEmail/Role/UserId + validate
     │   │
     │   └── resources/
-    │       └── application.yml                      ← All routes, CORS, Eureka, JWT config
+    │       └── application.yml                       ← All config with env var defaults
     │
     └── test/
-        └── java/com/medibook/gateway/
-            └── ApiGatewayApplicationTests.java      ← Spring context load test
+        └── java/com/medibook/provider/
+            └── ProviderServiceApplicationTests.java  ← Context load test
 ```
 
 ---
 
 ## ✨ Features
 
-### Routing
-- ✅ **10 microservice routes** — every MediBook service has a dedicated path prefix
-- ✅ **Eureka load-balanced routing** — uses `lb://service-name` so routes survive IP changes
-- ✅ **Auto-discovery** — `discovery.locator.enabled: true` auto-routes any new registered service
-- ✅ **Path preservation** — `StripPrefix=0` keeps the full original path intact when forwarding
+### Profile Management
+- ✅ **Register provider profile** — linked to userId from auth-service
+- ✅ **Partial profile update** — only non-null fields are updated
+- ✅ **Get by providerId** — direct lookup
+- ✅ **Get by userId** — used after auth-service login to find provider profile
+- ✅ **Delete provider** — Admin only, permanently removes profile
 
-### Security
-- ✅ **Global JWT filter** — `JwtAuthenticationFilter` runs at order `-1` (first, before everything)
-- ✅ **Public path whitelist** — OTP, register, login, refresh, provider browse, slot view, actuator, swagger skip JWT check
-- ✅ **401 on missing/invalid token** — returns immediately without forwarding to downstream
-- ✅ **JWT claims forwarding** — injects `X-User-Email`, `X-User-Role`, `X-User-Id` headers for downstream services
+### Search & Discovery (all public — no auth needed)
+- ✅ **Browse all providers** — list all profiles
+- ✅ **Get verified-only providers** — pre-filtered list
+- ✅ **Filter by specialization** — case-insensitive match
+- ✅ **Full-text search** — searches specialization + clinic name
+- ✅ **Advanced filter** — combine specialization + location + minRating
+- ✅ **Count by specialization** — analytics endpoint
 
-### CORS
-- ✅ **Global CORS policy** — configured once at gateway, applies to all routes
-- ✅ **React frontend support** — `localhost:3000` and `localhost:5173` (Vite) are allowed origins
-- ✅ **All HTTP methods** — GET, POST, PUT, DELETE, OPTIONS all permitted
-- ✅ **Credentials allowed** — `allowCredentials: true` for cookie-based flows
+### Admin Operations
+- ✅ **Verify provider** — marks `isVerified = true`, appears in patient searches
+- ✅ **Reject provider** — marks `isVerified = false`, `isAvailable = false`
+- ✅ **Delete provider** — permanent removal
+
+### Provider Self-Management
+- ✅ **Toggle availability** — provider can set themselves unavailable (e.g., leave)
+- ✅ **Update profile** — update any profile field independently
+
+### Inter-Service Integration
+- ✅ **Update rating** — called by review-service after a new review is submitted
+- ✅ **Dual JWT filter** — works with API Gateway (X-User-* headers) AND direct Postman calls (Bearer token)
 
 ### Infrastructure
-- ✅ **Eureka client** — registers itself and fetches registry for service resolution
-- ✅ **Actuator** — exposes health, info, and gateway-specific endpoints
-- ✅ **Environment variable config** — `JWT_SECRET` injected at runtime, never hardcoded
+- ✅ **3 database indexes** — `userId`, `specialization`, `isVerified` for fast queries
+- ✅ **Unique constraint** on `userId` — one profile per auth-service user
+- ✅ **Eureka Discovery** — registers with service registry
+- ✅ **Swagger UI** — interactive API docs
+- ✅ **Actuator** — health, info, metrics
+- ✅ **Global Exception Handler** — consistent JSON error responses
 
 ---
 
-## 🗺 Route Table
+## 🗄 Database Schema
 
-All routes use `lb://` (load-balanced via Eureka). `StripPrefix=0` means the full path is preserved.
+Table: **`providers`** (auto-created by Hibernate on first startup — `ddl-auto: update`)
 
-| Route ID | Path Prefix | Downstream Service | Port |
-|----------|------------|-------------------|------|
-| `auth-service` | `/api/v1/auth/**` | `lb://auth-service` | 8081 |
-| `provider-service` | `/api/v1/providers/**` | `lb://provider-service` | 8082 |
-| `schedule-service` | `/api/v1/slots/**` | `lb://schedule-service` | 8083 |
-| `appointment-service` | `/api/v1/appointments/**` | `lb://appointment-service` | 8084 |
-| `payment-service` | `/api/v1/payments/**` | `lb://payment-service` | 8085 |
-| `review-service` | `/api/v1/reviews/**` | `lb://review-service` | 8086 |
-| `notification-service` | `/api/v1/notifications/**` | `lb://notification-service` | 8087 |
-| `record-service` | `/api/v1/records/**` | `lb://record-service` | 8088 |
-| `admin-service` | `/api/v1/admin/**` | `lb://admin-service` | 8089 |
-| `payment-gateway-service` | `/api/v1/gateway/**` | `lb://payment-gateway-service` | 8090 |
+```sql
+CREATE TABLE providers (
+    provider_id      BIGINT       NOT NULL AUTO_INCREMENT,
+    user_id          BIGINT       NOT NULL UNIQUE,
+    specialization   VARCHAR(255) NOT NULL,
+    qualification    TEXT         NOT NULL,
+    experience_years INT,
+    bio              TEXT,
+    clinic_name      VARCHAR(255),
+    clinic_address   TEXT,
+    avg_rating       DOUBLE       DEFAULT 0.0,
+    is_verified      BIT          DEFAULT 0,
+    is_available     BIT          DEFAULT 1,
+    created_at       DATETIME(6),
+    updated_at       DATETIME(6),
+    PRIMARY KEY (provider_id),
 
-**Example routing in action:**
-```
-Client → POST http://localhost:8080/api/v1/auth/login
-Gateway → validates path (public, no JWT needed)
-Gateway → resolves lb://auth-service via Eureka → 127.0.0.1:8081
-Gateway → forwards → POST http://127.0.0.1:8081/api/v1/auth/login
-```
-
----
-
-## 🔐 JWT Filter — How It Works
-
-The `JwtAuthenticationFilter` implements `GlobalFilter` with `Ordered.getOrder() = -1`, meaning it executes **before any route filter** on every single request.
-
-```
-Incoming Request to Gateway
-          │
-          ▼
-┌──────────────────────────────────────────────────────┐
-│           JwtAuthenticationFilter                    │
-│                                                      │
-│  Step 1: Extract request path                        │
-│          String path = request.getURI().getPath()    │
-│                                                      │
-│  Step 2: Check if path is PUBLIC                     │
-│          PUBLIC_PATHS.stream()                       │
-│              .anyMatch(p -> path.startsWith(p))      │
-│                                                      │
-│  Step 3a: PUBLIC PATH                                │
-│           → chain.filter(exchange)  ✅ pass through │
-│                                                      │
-│  Step 3b: PROTECTED PATH                             │
-│           → Read Authorization header                │
-│           → Check "Bearer " prefix                   │
-│           → If missing/bad → 401 UNAUTHORIZED        │
-│                                                      │
-│  Step 4: Parse JWT token                             │
-│          Jwts.parserBuilder()                        │
-│              .setSigningKey(hmacKey)                 │
-│              .build()                                │
-│              .parseClaimsJws(token)                  │
-│              .getBody()                              │
-│                                                      │
-│  Step 5: On VALID token                              │
-│          → Mutate request: add headers               │
-│            X-User-Email = claims.getSubject()        │
-│            X-User-Role  = claims.get("role")         │
-│            X-User-Id    = claims.get("userId")       │
-│          → chain.filter(mutatedExchange)  ✅ forward │
-│                                                      │
-│  Step 6: On INVALID / EXPIRED token                  │
-│          → log.error(...)                            │
-│          → response.setStatusCode(401)               │
-│          → response.setComplete()  ❌ reject         │
-└──────────────────────────────────────────────────────┘
-          │
-          ▼
-   Downstream Microservice
-   receives request WITH
-   X-User-Email, X-User-Role, X-User-Id headers
+    UNIQUE KEY uq_user_id      (user_id),
+    INDEX idx_user_id          (user_id),
+    INDEX idx_specialization   (specialization),
+    INDEX idx_is_verified      (is_verified)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
----
+**Key design decisions:**
 
-## 🟢 Public vs Protected Paths
-
-### Public Paths — No JWT Required
-
-These paths start with the prefixes below and are allowed through without any token:
-
-| Path Prefix | Why Public |
-|------------|-----------|
-| `/api/v1/auth/login` | User needs to login to get a token |
-| `/api/v1/auth/register` | New user signup — no token yet |
-| `/api/v1/auth/send-otp` | Pre-registration OTP — no token yet |
-| `/api/v1/auth/verify-otp` | Pre-registration OTP verify — no token yet |
-| `/api/v1/auth/refresh` | Token refresh — old token may be expired |
-| `/api/v1/providers` | Guests can browse providers per PDF requirement |
-| `/api/v1/slots` | Guests can view available slots per PDF requirement |
-| `/actuator` | Health checks — no auth needed |
-| `/swagger-ui` | API docs — no auth needed |
-| `/api-docs` | OpenAPI spec — no auth needed |
-
-### Protected Paths — JWT Required
-
-Everything **not** in the public list above requires a valid `Bearer` token in the `Authorization` header. If the token is missing, malformed, expired, or has an invalid signature, the gateway returns:
-
-```json
-HTTP/1.1 401 Unauthorized
-```
-
-No request body is returned. The downstream service never receives the request.
-
----
-
-## 📤 Downstream Headers Forwarded
-
-When a valid JWT is presented, the gateway **mutates the request** before forwarding, adding these headers so downstream services know who is calling without re-validating the token:
-
-| Header | Value Source | Example |
-|--------|-------------|---------|
-| `X-User-Email` | `claims.getSubject()` | `admin@medibook.com` |
-| `X-User-Role` | `claims.get("role")` | `ADMIN` |
-| `X-User-Id` | `claims.get("userId")` | `1` |
-
-**How downstream services use these:**
-
-```java
-// In any downstream service controller:
-@GetMapping("/my-endpoint")
-public ResponseEntity<?> handle(
-        @RequestHeader("X-User-Id") Long userId,
-        @RequestHeader("X-User-Role") String role,
-        @RequestHeader("X-User-Email") String email) {
-    // No need to validate JWT again — gateway already did it
-    // Just use these headers directly
-}
-```
-
----
-
-## 🌐 CORS Configuration
-
-Configured globally in `application.yml` — applies to every route automatically:
-
-```yaml
-globalcors:
-  cors-configurations:
-    '[/**]':
-      allowedOrigins:
-        - "http://localhost:3000"   # React CRA frontend
-        - "http://localhost:5173"   # Vite dev server
-      allowedMethods:
-        - GET
-        - POST
-        - PUT
-        - DELETE
-        - OPTIONS
-      allowedHeaders: "*"
-      allowCredentials: true
-```
-
-**What this means:**
-- React frontend running on port 3000 or 5173 can call `localhost:8080` without CORS errors
-- All HTTP methods are allowed
-- All request headers are accepted (`*`)
-- Credentials (cookies, Authorization headers) are passed through
-
-> For production, replace `allowedOrigins` with your actual deployed frontend domain, e.g., `https://medibook.in`.
+- `user_id` is a plain `BIGINT` — not a foreign key. There is no JPA join to auth-service. This enforces the microservice boundary. The provider-service trusts that the userId was valid when passed by auth-service.
+- `is_verified = 0` by default — admin must explicitly verify before patient-facing endpoints return the provider
+- `is_available = 1` by default — provider is available immediately after registration
+- `avg_rating = 0.0` by default — updated by the review-service via `PUT /{providerId}/rating`
 
 ---
 
@@ -393,59 +270,65 @@ globalcors:
 |------|---------|---------------|
 | Java JDK | 17+ | `java -version` |
 | Maven | 3.9+ | `mvn -version` |
-| Eureka Server | Running on :8761 | `curl http://localhost:8761/actuator/health` |
+| MySQL | 8.0 | `mysql --version` |
 | Git | Any | `git --version` |
 
-> The gateway itself needs **no database and no Redis**. It only needs Eureka to discover downstream services, and the JWT secret to validate tokens.
+> No Redis required. No SMTP required. provider-service only needs MySQL and optionally Eureka.
 
 ---
 
 ## 🔐 Environment Variables
 
-Only **one** environment variable is required for the gateway:
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `JWT_SECRET` | ✅ Yes | — | Must match auth-service secret exactly |
+| `DB_URL` | ❌ | `jdbc:mysql://localhost:3306/provider_db?...` | MySQL connection URL |
+| `DB_USERNAME` | ❌ | `medibook_user` | MySQL username |
+| `DB_PASSWORD` | ❌ | `medibook_pass` | MySQL password |
+| `EUREKA_ENABLED` | ❌ | `false` | Set `true` when Eureka Server is running |
+| `EUREKA_DEFAULT_ZONE` | ❌ | `http://localhost:8761/eureka/` | Eureka server URL |
 
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `JWT_SECRET` | ✅ Yes | Must match the secret used in `auth-service` exactly | `medibook-super-secret-key-at-least-256-bits-long` |
-
-### Set on Windows (CMD)
+### Set on Windows CMD
 
 ```cmd
 set JWT_SECRET=medibook-super-secret-key-must-be-at-least-256-bits-long-change-in-prod
+set DB_USERNAME=medibook_user
+set DB_PASSWORD=medibook_pass
+set EUREKA_ENABLED=false
 ```
 
 ### Set in Eclipse Run Config
 
-1. Right-click `ApiGatewayApplication.java` → **Run As → Run Configurations**
-2. Click **Environment** tab → **New**
-3. Name: `JWT_SECRET`
-4. Value: `medibook-super-secret-key-must-be-at-least-256-bits-long-change-in-prod`
-5. Click **Apply** → **Run**
+1. Right-click `ProviderServiceApplication.java` → **Run As → Run Configurations**
+2. **Environment** tab → **New** for each variable
+3. **Apply** → **Run**
 
-> **Critical:** The `JWT_SECRET` in the gateway must be **byte-for-byte identical** to the one in `auth-service`. If they differ, the gateway will reject every token as invalid even if auth-service issued it correctly.
+### Create MySQL Database
+
+```sql
+-- Run in MySQL Workbench or CLI
+CREATE DATABASE provider_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON provider_db.* TO 'medibook_user'@'localhost';
+FLUSH PRIVILEGES;
+```
 
 ---
 
 ## ▶ How to Run
 
 ```bash
-# Step 1 — Clone and checkout branch
-git clone https://github.com/your-username/MediBook-Microservices.git
-cd MediBook-Microservices
-git checkout feature/api-gateway
+# Step 1 — Checkout branch
+git checkout feature/provider-service
 
-# Step 2 — Set the required env variable
+# Step 2 — Set env variables
 set JWT_SECRET=medibook-super-secret-key-must-be-at-least-256-bits-long-change-in-prod
 
 # Step 3 — Build
-cd api-gateway
+cd provider-service
 mvn clean install -DskipTests
 
 # Step 4 — Run
 mvn spring-boot:run
-
-# OR in Eclipse:
-# Right-click ApiGatewayApplication.java → Run As → Spring Boot App
 ```
 
 ### Successful Startup Output
@@ -453,306 +336,1742 @@ mvn spring-boot:run
 ```
   .   ____          _            __ _ _
  /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
-( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
- \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
-  '  |____| .__|_| |_|_| |_\__, | / / / /
- =========|_|==============|___/=/_/_/_/
  :: Spring Boot ::                (v3.2.0)
 
-INFO  Netty started on port 8080
-INFO  Started ApiGatewayApplication in 4.3 seconds
-API Gateway is Running.......!
-```
+Hibernate:
+    create table providers (
+        provider_id bigint not null auto_increment,
+        ...
+    ) engine=InnoDB
 
-> Notice it says **Netty** (not Tomcat) — this confirms the reactive WebFlux stack is running correctly.
+INFO  Tomcat started on port 8082 (http)
+INFO  Started ProviderServiceApplication in 8.2 seconds
+Provider-Service is Running......!
+```
 
 ---
 
-## 🚦 Startup Order
-
-The gateway **must start after** Eureka Server, because it needs Eureka to resolve `lb://service-name` routes. Microservices can start in any order after the gateway.
+## 🔒 Security Architecture
 
 ```
-① Start Eureka Server    (port 8761)
-   └─ Wait until "Started EurekaServerApplication" appears in console
-
-② Start API Gateway      (port 8080)
-   └─ Wait until "API Gateway is Running.......!" appears in console
-
-③ Start auth-service     (port 8081)
-④ Start provider-service (port 8082)
-⑤ Start schedule-service (port 8083)
-... and so on in any order
+Incoming Request to port 8082
+         │
+         ▼
+┌──────────────────────────────────────────────────────────┐
+│          GatewayJwtAuthenticationFilter                   │
+│                (OncePerRequestFilter)                     │
+│                                                          │
+│  Check for X-User-Email + X-User-Role headers            │
+│  (these are injected by API Gateway after JWT validation) │
+│                                                          │
+│  ┌── Scenario A: Via API Gateway ──────────────────────┐ │
+│  │  X-User-Email: doc@gmail.com  present?              │ │
+│  │  X-User-Role: PROVIDER        present?              │ │
+│  │  → Yes → build SecurityContext directly             │ │
+│  │          → skip JWT parsing → forward request       │ │
+│  └──────────────────────────────────────────────────────┘ │
+│                                                          │
+│  ┌── Scenario B: Direct call (Postman → :8082) ────────┐ │
+│  │  Authorization: Bearer <token>   present?           │ │
+│  │  → Yes → JwtUtil.validateToken()                    │ │
+│  │        → extractEmail() + extractRole()             │ │
+│  │        → build SecurityContext                      │ │
+│  └──────────────────────────────────────────────────────┘ │
+└───────────────────────┬──────────────────────────────────┘
+                        │
+                        ▼
+┌──────────────────────────────────────────────────────────┐
+│                   SecurityConfig                          │
+│                                                          │
+│  PUBLIC GET (no token needed — PDF requirement):         │
+│  GET  /api/v1/providers                                  │
+│  GET  /api/v1/providers/**                               │
+│  GET  /swagger-ui/**                                     │
+│  GET  /api-docs/**                                       │
+│  GET  /actuator/health                                   │
+│                                                          │
+│  ALL OTHER REQUESTS → Must be authenticated              │
+└───────────────────────┬──────────────────────────────────┘
+                        │
+                        ▼
+┌──────────────────────────────────────────────────────────┐
+│               @PreAuthorize (Method Level)                │
+│                                                          │
+│  POST   /providers        → PROVIDER or ADMIN            │
+│  PUT    /providers/{id}   → PROVIDER or ADMIN            │
+│  PUT    /verify           → ADMIN only                   │
+│  PUT    /reject           → ADMIN only                   │
+│  DELETE /providers/{id}   → ADMIN only                   │
+└──────────────────────────────────────────────────────────┘
 ```
-
-**Verify gateway registered with Eureka:**
-
-Open `http://localhost:8761` in browser. You should see `API-GATEWAY` listed under "Instances currently registered with Eureka".
 
 ---
 
-## 🧪 Postman Testing via Gateway
+## 📡 API Reference
 
-Once the gateway and at least `auth-service` are running, test **through the gateway** using port `8080` instead of `8081`:
-
-### Base URL for all requests via gateway
+### Base URL
 ```
-http://localhost:8080
+http://localhost:8082/api/v1/providers
 ```
+*(or `http://localhost:8080/api/v1/providers` when going through API Gateway)*
 
-### 1. Send OTP (public — no token needed)
+---
 
+### 1. Register Provider Profile
+
+| | |
+|---|---|
+| **Method** | `POST` |
+| **URL** | `/api/v1/providers` |
+| **Auth** | ✅ Required — `PROVIDER` or `ADMIN` role |
+| **Description** | Creates a new provider profile. Must be called after registering as PROVIDER in auth-service |
+
+**Headers**
 ```
-POST http://localhost:8080/api/v1/auth/send-otp
+Authorization: Bearer <provider_token>
 Content-Type: application/json
-
-{
-  "email": "newuser@gmail.com"
-}
 ```
 
-### 2. Verify OTP (public)
-
-```
-POST http://localhost:8080/api/v1/auth/verify-otp
-Content-Type: application/json
-
-{
-  "email": "newuser@gmail.com",
-  "otp": "482910"
-}
-```
-
-### 3. Register (public)
-
-```
-POST http://localhost:8080/api/v1/auth/register
-Content-Type: application/json
-
-{
-  "fullName": "Harshal Choudhary",
-  "email": "newuser@gmail.com",
-  "password": "Harshal@123",
-  "phone": "9876543210",
-  "role": "PATIENT"
-}
-```
-
-### 4. Login (public — get your token here)
-
-```
-POST http://localhost:8080/api/v1/auth/login
-Content-Type: application/json
-
-{
-  "email": "newuser@gmail.com",
-  "password": "Harshal@123"
-}
-```
-
-**Response:**
+**Request Body**
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiJ9.....",
-  "tokenType": "Bearer",
-  "email": "newuser@gmail.com",
-  "role": "PATIENT",
-  "userId": 1
+  "userId": 2,
+  "specialization": "Cardiology",
+  "qualification": "MBBS, MD (Cardiology) — AIIMS Delhi",
+  "experienceYears": 12,
+  "bio": "Experienced cardiologist specializing in interventional cardiology and heart failure management.",
+  "clinicName": "HeartCare Clinic",
+  "clinicAddress": "402, MG Road, Indore, Madhya Pradesh 452001"
 }
 ```
-> Copy the `token`. You need it for all protected requests below.
 
-### 5. Get Profile (protected — token required)
-
-```
-GET http://localhost:8080/api/v1/auth/profile/1
-Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.....
-```
-
-**What the gateway does behind the scenes:**
-```
-1. JwtAuthenticationFilter intercepts request
-2. Reads Authorization header → extracts token
-3. Parses JWT → subject = "newuser@gmail.com", role = "PATIENT", userId = 1
-4. Adds headers: X-User-Email, X-User-Role, X-User-Id
-5. Routes to lb://auth-service → resolves to localhost:8081
-6. Forwards GET http://localhost:8081/api/v1/auth/profile/1 + X-User-* headers
-7. auth-service responds → gateway forwards response back to client
-```
-
-### 6. Test 401 — missing token
-
-```
-GET http://localhost:8080/api/v1/auth/profile/1
-(no Authorization header)
+**Response `201 Created`**
+```json
+{
+  "providerId": 1,
+  "userId": 2,
+  "specialization": "Cardiology",
+  "qualification": "MBBS, MD (Cardiology) — AIIMS Delhi",
+  "experienceYears": 12,
+  "bio": "Experienced cardiologist specializing in interventional cardiology and heart failure management.",
+  "clinicName": "HeartCare Clinic",
+  "clinicAddress": "402, MG Road, Indore, Madhya Pradesh 452001",
+  "avgRating": 0.0,
+  "isVerified": false,
+  "isAvailable": true,
+  "createdAt": "2026-04-21T10:30:00"
+}
 ```
 
-**Expected response:**
-```
-HTTP 401 Unauthorized
-(empty body — gateway rejects before reaching auth-service)
-```
-
-### 7. Test 401 — tampered token
-
-```
-GET http://localhost:8080/api/v1/auth/profile/1
-Authorization: Bearer invalidtoken.tampered.value
-```
-
-**Expected response:**
-```
-HTTP 401 Unauthorized
-(gateway logs: JWT validation failed)
-```
-
-### 8. Browse Providers (public — no token needed)
-
-```
-GET http://localhost:8080/api/v1/providers
-```
-
-> No token required because `/api/v1/providers` is in the public paths list — guests can browse providers per the MediBook PDF requirements.
+**Error Cases**
+| Code | Message |
+|------|---------|
+| `400` | `Provider profile already exists for userId: 2` |
+| `400` | Validation failure (missing specialization, qualification etc.) |
+| `401` | Missing or invalid token |
+| `403` | PATIENT role cannot register provider profile |
 
 ---
 
-## 📊 Actuator Endpoints
+### 2. Get All Providers
 
-The gateway exposes Spring Boot Actuator at:
+| | |
+|---|---|
+| **Method** | `GET` |
+| **URL** | `/api/v1/providers` |
+| **Auth** | ❌ Public — no token needed |
+| **Description** | Returns all provider profiles regardless of verification status |
 
-| Endpoint | URL | Description |
-|----------|-----|-------------|
-| Health | `http://localhost:8080/actuator/health` | Gateway and Eureka connectivity status |
-| Info | `http://localhost:8080/actuator/info` | Service name and version |
-| Gateway routes | `http://localhost:8080/actuator/gateway/routes` | Lists all configured routes with predicates and filters |
-
-**Sample `/actuator/gateway/routes` response:**
+**Response `200 OK`**
 ```json
 [
   {
-    "predicate": "Paths: [/api/v1/auth/**], match trailing slash: true",
-    "route_id": "auth-service",
-    "filters": ["[[StripPrefix parts = 0], order = 1]"],
-    "uri": "lb://auth-service",
-    "order": 0
-  },
-  {
-    "predicate": "Paths: [/api/v1/providers/**], match trailing slash: true",
-    "route_id": "provider-service",
-    "uri": "lb://provider-service",
-    "order": 0
+    "providerId": 1,
+    "userId": 2,
+    "specialization": "Cardiology",
+    "avgRating": 4.5,
+    "isVerified": true,
+    "isAvailable": true,
+    ...
   }
 ]
 ```
 
 ---
 
-## ❌ Common Issues & Fixes
+### 3. Get Verified Providers
 
-### Issue 1: `spring-boot-starter-web` conflict
+| | |
+|---|---|
+| **Method** | `GET` |
+| **URL** | `/api/v1/providers/verified` |
+| **Auth** | ❌ Public |
+| **Description** | Returns only admin-verified providers — the list patients see when browsing |
 
-```
-Failed to start bean 'documentationPluginsBootstrapper'
-OR
-Unable to start embedded Tomcat/Netty conflict
-```
-
-**Cause:** Added `spring-boot-starter-web` to the gateway's `pom.xml`. The gateway uses WebFlux (Netty), not Servlet (Tomcat). These two cannot coexist.
-
-**Fix:** Remove `spring-boot-starter-web` from `api-gateway/pom.xml`. Only use `spring-cloud-starter-gateway`.
+**Response `200 OK`** — Array of providers where `isVerified = true`
 
 ---
 
-### Issue 2: 503 Service Unavailable
+### 4. Get Provider by ID
 
+| | |
+|---|---|
+| **Method** | `GET` |
+| **URL** | `/api/v1/providers/{providerId}` |
+| **Auth** | ❌ Public |
+| **Description** | Get a specific provider profile by their providerId |
+
+**Response `200 OK`** — Single ProviderResponse
+
+**Error Cases**
+| Code | Message |
+|------|---------|
+| `404` | `Provider not found with id: 99` |
+
+---
+
+### 5. Get Provider by User ID
+
+| | |
+|---|---|
+| **Method** | `GET` |
+| **URL** | `/api/v1/providers/user/{userId}` |
+| **Auth** | ❌ Public |
+| **Description** | Find a provider using their auth-service userId — useful after login to load the provider's own dashboard |
+
+**Response `200 OK`** — Single ProviderResponse
+
+**Error Cases**
+| Code | Message |
+|------|---------|
+| `404` | `Provider profile not found for userId: 5` |
+
+---
+
+### 6. Get by Specialization
+
+| | |
+|---|---|
+| **Method** | `GET` |
+| **URL** | `/api/v1/providers/specialization/{specialization}` |
+| **Auth** | ❌ Public |
+| **Description** | Case-insensitive filter by specialization — returns all verification statuses |
+
+**Example**
+```
+GET /api/v1/providers/specialization/Cardiology
+GET /api/v1/providers/specialization/cardiology   (same result)
+GET /api/v1/providers/specialization/CARDIOLOGY   (same result)
+```
+
+**Response `200 OK`** — Array of ProviderResponse
+
+---
+
+### 7. Search Providers
+
+| | |
+|---|---|
+| **Method** | `GET` |
+| **URL** | `/api/v1/providers/search?q={query}` |
+| **Auth** | ❌ Public |
+| **Description** | Full-text search across specialization and clinic name fields |
+
+**Examples**
+```
+GET /api/v1/providers/search?q=heart
+GET /api/v1/providers/search?q=HeartCare
+GET /api/v1/providers/search?q=Cardio
+```
+
+**Response `200 OK`** — Array of matching ProviderResponse objects
+
+---
+
+### 8. Advanced Filter
+
+| | |
+|---|---|
+| **Method** | `GET` |
+| **URL** | `/api/v1/providers/filter` |
+| **Auth** | ❌ Public |
+| **Description** | Filter **verified + available** providers by specialization, location, and/or minimum rating. Only returns `isVerified=true AND isAvailable=true` providers. All params optional |
+
+**Query Parameters**
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `specialization` | String | ❌ | Case-insensitive exact match |
+| `location` | String | ❌ | Partial match on clinicAddress |
+| `minRating` | Double | ❌ | Minimum avgRating (0.0–5.0) |
+
+**Examples**
+```
+GET /api/v1/providers/filter?specialization=Cardiology
+GET /api/v1/providers/filter?location=Indore
+GET /api/v1/providers/filter?minRating=4.0
+GET /api/v1/providers/filter?specialization=Cardiology&location=Indore&minRating=4.0
+GET /api/v1/providers/filter   (returns all verified + available)
+```
+
+**Response `200 OK`** — Array of verified+available ProviderResponse objects
+
+---
+
+### 9. Count by Specialization
+
+| | |
+|---|---|
+| **Method** | `GET` |
+| **URL** | `/api/v1/providers/count?specialization={spec}` |
+| **Auth** | ❌ Public |
+| **Description** | Count how many providers exist for a given specialization |
+
+**Response `200 OK`**
 ```json
 {
-  "timestamp": "...",
-  "path": "/api/v1/auth/login",
-  "status": 503,
-  "error": "Service Unavailable",
-  "message": "Unable to find instance for auth-service"
+  "count": 7
 }
 ```
 
-**Cause:** The gateway can't find `auth-service` in Eureka.
+---
 
-**Fix — check all three:**
-1. Is `auth-service` actually running? Check its console.
-2. Is Eureka running on port 8761? Open `http://localhost:8761`.
-3. Is `auth-service` listed in the Eureka dashboard? If not, check its `application.yml` Eureka config.
+### 10. Update Provider Profile
+
+| | |
+|---|---|
+| **Method** | `PUT` |
+| **URL** | `/api/v1/providers/{providerId}` |
+| **Auth** | ✅ Required — `PROVIDER` or `ADMIN` |
+| **Description** | Partial update — only sends fields you want to change. Null fields are ignored |
+
+**Headers**
+```
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+**Request Body** — all fields optional
+```json
+{
+  "bio": "Updated bio with new achievements.",
+  "clinicAddress": "New Address, Indore",
+  "experienceYears": 15
+}
+```
+
+**Response `200 OK`** — Updated ProviderResponse
 
 ---
 
-### Issue 3: 401 on every request including login
+### 11. Verify Provider (Admin)
 
+| | |
+|---|---|
+| **Method** | `PUT` |
+| **URL** | `/api/v1/providers/{providerId}/verify` |
+| **Auth** | ✅ Required — **ADMIN only** |
+| **Description** | Admin approves provider credentials. Sets `isVerified = true`. Provider now appears in patient searches |
+
+**Headers**
 ```
-401 Unauthorized on POST /api/v1/auth/login
+Authorization: Bearer <admin_token>
 ```
 
-**Cause:** `/api/v1/auth/login` should be in the public path list but your `JWT_SECRET` may not be set, causing the filter to crash on startup, or the public path check has a bug.
+**Response `200 OK`**
+```json
+{
+  "message": "Provider 1 has been verified successfully."
+}
+```
 
-**Fix:** Verify the `PUBLIC_PATHS` list in `JwtAuthenticationFilter.java` includes `/api/v1/auth/login`. Also verify `JWT_SECRET` env variable is set.
+**Error Cases**
+| Code | Message |
+|------|---------|
+| `409` | `Provider is already verified: 1` |
+| `403` | Non-admin attempting verification |
+| `404` | Provider not found |
 
 ---
 
-### Issue 4: JWT validation failed — "secret too short"
+### 12. Reject Provider (Admin)
 
-```
-JWT validation failed: The signing key's size is 248 bits...
-```
+| | |
+|---|---|
+| **Method** | `PUT` |
+| **URL** | `/api/v1/providers/{providerId}/reject` |
+| **Auth** | ✅ Required — **ADMIN only** |
+| **Description** | Admin rejects/removes provider verification. Sets `isVerified = false` and `isAvailable = false`. Provider disappears from patient searches |
 
-**Cause:** Your `JWT_SECRET` value is shorter than 256 bits (32 characters).
-
-**Fix:** Use a secret that is at least 32 characters long:
-```
-medibook-super-secret-key-must-be-at-least-256-bits-long
-```
-
----
-
-### Issue 5: CORS error in browser
-
-```
-Access to XMLHttpRequest at 'http://localhost:8080/api/...'
-from origin 'http://localhost:3000' has been blocked by CORS policy
-```
-
-**Cause:** Either the gateway isn't running, or your frontend origin isn't in `allowedOrigins`.
-
-**Fix:** Add your frontend origin to `application.yml`:
-```yaml
-allowedOrigins:
-  - "http://localhost:3000"
-  - "http://localhost:5173"
-  - "http://your-new-frontend-port"
+**Response `200 OK`**
+```json
+{
+  "message": "Provider 1 has been rejected."
+}
 ```
 
 ---
 
-### Issue 6: Eureka registration shows "STARTING" for a long time
+### 13. Set Availability
 
-**Cause:** The gateway registered but Eureka hasn't completed the handshake.
+| | |
+|---|---|
+| **Method** | `PUT` |
+| **URL** | `/api/v1/providers/{providerId}/availability?available={true/false}` |
+| **Auth** | ✅ Required — `PROVIDER` or `ADMIN` |
+| **Description** | Toggle provider availability. Providers can mark themselves unavailable during leave |
 
-**Fix:** This is normal for 30–60 seconds after startup. Eureka heartbeat interval is 30 seconds. Wait and the status will change to `UP`.
+**Examples**
+```
+PUT /api/v1/providers/1/availability?available=false   (going on leave)
+PUT /api/v1/providers/1/availability?available=true    (back from leave)
+```
+
+**Response `200 OK`**
+```json
+{
+  "message": "Availability set to false for providerId: 1"
+}
+```
 
 ---
 
-### Issue 7: `Cannot determine local hostname`
+### 14. Update Rating
+
+| | |
+|---|---|
+| **Method** | `PUT` |
+| **URL** | `/api/v1/providers/{providerId}/rating?rating={value}` |
+| **Auth** | ✅ Required |
+| **Description** | Updates the provider's `avgRating`. This endpoint is called internally by `review-service` after every new review is submitted. Rating must be between 0.0 and 5.0 |
+
+**Example**
+```
+PUT /api/v1/providers/1/rating?rating=4.3
+```
+
+**Response `200 OK`**
+```json
+{
+  "message": "Rating updated to 4.3 for providerId: 1"
+}
+```
+
+**Error Cases**
+| Code | Message |
+|------|---------|
+| `400` | `Rating must be between 0 and 5` |
+| `404` | Provider not found |
+
+---
+
+### 15. Delete Provider (Admin)
+
+| | |
+|---|---|
+| **Method** | `DELETE` |
+| **URL** | `/api/v1/providers/{providerId}` |
+| **Auth** | ✅ Required — **ADMIN only** |
+| **Description** | Permanently deletes a provider profile |
+
+**Headers**
+```
+Authorization: Bearer <admin_token>
+```
+
+**Response `200 OK`**
+```json
+{
+  "message": "Provider 1 deleted successfully."
+}
+```
+
+---
+
+## 📊 API Summary Table
+
+| # | Method | Endpoint | Auth | Role |
+|---|--------|----------|------|------|
+| 1 | `POST` | `/api/v1/providers` | ✅ | PROVIDER / ADMIN |
+| 2 | `GET` | `/api/v1/providers` | ❌ | Public |
+| 3 | `GET` | `/api/v1/providers/verified` | ❌ | Public |
+| 4 | `GET` | `/api/v1/providers/{providerId}` | ❌ | Public |
+| 5 | `GET` | `/api/v1/providers/user/{userId}` | ❌ | Public |
+| 6 | `GET` | `/api/v1/providers/specialization/{spec}` | ❌ | Public |
+| 7 | `GET` | `/api/v1/providers/search?q=` | ❌ | Public |
+| 8 | `GET` | `/api/v1/providers/filter` | ❌ | Public |
+| 9 | `GET` | `/api/v1/providers/count?specialization=` | ❌ | Public |
+| 10 | `PUT` | `/api/v1/providers/{providerId}` | ✅ | PROVIDER / ADMIN |
+| 11 | `PUT` | `/api/v1/providers/{providerId}/verify` | ✅ | **ADMIN only** |
+| 12 | `PUT` | `/api/v1/providers/{providerId}/reject` | ✅ | **ADMIN only** |
+| 13 | `PUT` | `/api/v1/providers/{providerId}/availability` | ✅ | PROVIDER / ADMIN |
+| 14 | `PUT` | `/api/v1/providers/{providerId}/rating` | ✅ | Any authenticated |
+| 15 | `DELETE` | `/api/v1/providers/{providerId}` | ✅ | **ADMIN only** |
+
+---
+
+## 🧪 Postman Testing Guide
+
+### Postman Environment Variables
+
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `baseUrl` | `http://localhost:8082/api/v1/providers` | Direct service URL |
+| `gatewayUrl` | `http://localhost:8080/api/v1/providers` | Via API Gateway |
+| `providerToken` | *(paste after login)* | PROVIDER JWT token |
+| `adminToken` | *(paste after login)* | ADMIN JWT token |
+| `providerId` | *(paste after register)* | Provider's providerId |
+| `userId` | *(paste from auth-service login)* | Provider's userId |
+
+### Recommended Testing Order
+
+#### Step 1 — Register provider in auth-service first
 
 ```
-WARN Cannot determine local hostname
+POST http://localhost:8081/api/v1/auth/send-otp
+Body: { "email": "dr.priya@gmail.com" }
+
+POST http://localhost:8081/api/v1/auth/verify-otp
+Body: { "email": "dr.priya@gmail.com", "otp": "123456" }
+
+POST http://localhost:8081/api/v1/auth/register
+Body:
+{
+  "fullName": "Dr. Priya Mehta",
+  "email": "dr.priya@gmail.com",
+  "password": "Priya@123",
+  "phone": "9876543211",
+  "role": "PROVIDER"
+}
+
+POST http://localhost:8081/api/v1/auth/login
+Body: { "email": "dr.priya@gmail.com", "password": "Priya@123" }
+→ Copy token → save as {{providerToken}}
+→ Copy userId → save as {{userId}}
 ```
 
-**This is NOT an error.** This is a known Eureka client warning on Windows when the machine hostname isn't resolvable. The service still starts and registers correctly. To silence it, add to `application.yml`:
+#### Step 2 — Register admin in auth-service
 
-```yaml
-eureka:
-  instance:
-    hostname: localhost
-    prefer-ip-address: true
-    ip-address: 127.0.0.1
 ```
+(Follow same OTP flow with role: "ADMIN")
+POST http://localhost:8081/api/v1/auth/login
+Body: { "email": "admin@gmail.com", "password": "Admin@123" }
+→ Copy token → save as {{adminToken}}
+```
+
+#### Step 3 — Provider creates profile
+
+```
+POST {{baseUrl}}
+Headers: Authorization: Bearer {{providerToken}}
+Body:
+{
+  "userId": {{userId}},
+  "specialization": "Cardiology",
+  "qualification": "MBBS, MD (Cardiology) — AIIMS Delhi",
+  "experienceYears": 12,
+  "bio": "Specialist in interventional cardiology.",
+  "clinicName": "HeartCare Clinic",
+  "clinicAddress": "402, MG Road, Indore, MP 452001"
+}
+→ Copy providerId → save as {{providerId}}
+→ Note: isVerified = false (not visible to patients yet)
+```
+
+#### Step 4 — Admin verifies provider
+
+```
+PUT {{baseUrl}}/{{providerId}}/verify
+Headers: Authorization: Bearer {{adminToken}}
+→ isVerified = true (now visible in patient searches)
+```
+
+#### Step 5 — Test public search (no token needed)
+
+```
+GET {{baseUrl}}
+GET {{baseUrl}}/verified
+GET {{baseUrl}}/{{providerId}}
+GET {{baseUrl}}/user/{{userId}}
+GET {{baseUrl}}/specialization/Cardiology
+GET {{baseUrl}}/search?q=heart
+GET {{baseUrl}}/filter?specialization=Cardiology&location=Indore&minRating=0.0
+GET {{baseUrl}}/count?specialization=Cardiology
+```
+
+#### Step 6 — Provider updates own profile
+
+```
+PUT {{baseUrl}}/{{providerId}}
+Headers: Authorization: Bearer {{providerToken}}
+Body:
+{
+  "bio": "Updated: 13 years experience now.",
+  "experienceYears": 13
+}
+```
+
+#### Step 7 — Toggle availability
+
+```
+PUT {{baseUrl}}/{{providerId}}/availability?available=false
+Headers: Authorization: Bearer {{providerToken}}
+→ Provider goes on leave
+
+PUT {{baseUrl}}/{{providerId}}/availability?available=true
+Headers: Authorization: Bearer {{providerToken}}
+→ Provider returns
+```
+
+#### Step 8 — Rating update (simulates review-service)
+
+```
+PUT {{baseUrl}}/{{providerId}}/rating?rating=4.5
+Headers: Authorization: Bearer {{providerToken}}
+```
+
+#### Step 9 — Admin rejects provider
+
+```
+PUT {{baseUrl}}/{{providerId}}/reject
+Headers: Authorization: Bearer {{adminToken}}
+→ isVerified = false, isAvailable = false
+→ No longer visible in /filter results
+```
+
+#### Step 10 — Admin deletes provider
+
+```
+DELETE {{baseUrl}}/{{providerId}}
+Headers: Authorization: Bearer {{adminToken}}
+→ 200 OK with deletion message
+```
+
+### Test 401 — No token on protected endpoint
+
+```
+POST {{baseUrl}}
+(no Authorization header)
+→ 401 Unauthorized
+```
+
+### Test 403 — Wrong role
+
+```
+PUT {{baseUrl}}/1/verify
+Headers: Authorization: Bearer {{providerToken}}   ← PROVIDER token, not ADMIN
+→ 403 Forbidden
+```
+
+---
+
+## 🧪 Test Cases
+
+Place these files in:
+```
+provider-service/src/test/java/com/medibook/provider/
+├── service/impl/ProviderServiceImplTest.java
+├── resource/ProviderResourceTest.java
+└── exception/GlobalExceptionHandlerTest.java
+```
+
+---
+
+### ProviderServiceImplTest.java
+
+```java
+package com.medibook.provider.service.impl;
+
+import com.medibook.provider.dto.request.ProviderRegistrationRequest;
+import com.medibook.provider.dto.request.UpdateProviderRequest;
+import com.medibook.provider.dto.response.ProviderResponse;
+import com.medibook.provider.entity.Provider;
+import com.medibook.provider.exception.ResourceNotFoundException;
+import com.medibook.provider.repository.ProviderRepository;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.*;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.*;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("ProviderServiceImpl — Unit Tests")
+class ProviderServiceImplTest {
+
+    @Mock private ProviderRepository providerRepository;
+    @InjectMocks private ProviderServiceImpl providerService;
+
+    // ── Helper ────────────────────────────────────────────────────────────
+
+    private Provider buildProvider(Long id, Long userId, boolean verified) {
+        return Provider.builder()
+                .providerId(id)
+                .userId(userId)
+                .specialization("Cardiology")
+                .qualification("MBBS, MD")
+                .experienceYears(10)
+                .bio("Experienced cardiologist")
+                .clinicName("HeartCare")
+                .clinicAddress("Indore, MP")
+                .avgRating(0.0)
+                .isVerified(verified)
+                .isAvailable(true)
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    private ProviderRegistrationRequest buildRegRequest(Long userId) {
+        ProviderRegistrationRequest req = new ProviderRegistrationRequest();
+        req.setUserId(userId);
+        req.setSpecialization("Cardiology");
+        req.setQualification("MBBS, MD");
+        req.setExperienceYears(10);
+        req.setBio("Cardiologist");
+        req.setClinicName("HeartCare");
+        req.setClinicAddress("Indore, MP");
+        return req;
+    }
+
+    // ── registerProvider ──────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("registerProvider()")
+    class RegisterProviderTests {
+
+        @Test
+        @DisplayName("throws IllegalArgumentException when userId already has a profile")
+        void shouldThrow_whenUserIdAlreadyExists() {
+            given(providerRepository.existsByUserId(2L)).willReturn(true);
+
+            assertThatThrownBy(() -> providerService.registerProvider(buildRegRequest(2L)))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("already exists");
+
+            verify(providerRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("saves provider with isVerified=false and isAvailable=true by default")
+        void shouldSaveWithCorrectDefaults() {
+            given(providerRepository.existsByUserId(2L)).willReturn(false);
+            Provider saved = buildProvider(1L, 2L, false);
+            given(providerRepository.save(any())).willReturn(saved);
+
+            ProviderResponse resp = providerService.registerProvider(buildRegRequest(2L));
+
+            assertThat(resp.getIsVerified()).isFalse();
+            assertThat(resp.getIsAvailable()).isTrue();
+            assertThat(resp.getAvgRating()).isEqualTo(0.0);
+        }
+
+        @Test
+        @DisplayName("returns correct ProviderResponse after successful registration")
+        void shouldReturnCorrectResponse() {
+            given(providerRepository.existsByUserId(2L)).willReturn(false);
+            Provider saved = buildProvider(1L, 2L, false);
+            given(providerRepository.save(any())).willReturn(saved);
+
+            ProviderResponse resp = providerService.registerProvider(buildRegRequest(2L));
+
+            assertThat(resp.getProviderId()).isEqualTo(1L);
+            assertThat(resp.getUserId()).isEqualTo(2L);
+            assertThat(resp.getSpecialization()).isEqualTo("Cardiology");
+        }
+    }
+
+    // ── getProviderById ───────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("getProviderById()")
+    class GetByIdTests {
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException when providerId not found")
+        void shouldThrow_whenNotFound() {
+            given(providerRepository.findById(99L)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> providerService.getProviderById(99L))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("99");
+        }
+
+        @Test
+        @DisplayName("returns correct ProviderResponse when found")
+        void shouldReturn_whenFound() {
+            Provider p = buildProvider(1L, 2L, true);
+            given(providerRepository.findById(1L)).willReturn(Optional.of(p));
+
+            ProviderResponse resp = providerService.getProviderById(1L);
+
+            assertThat(resp.getProviderId()).isEqualTo(1L);
+            assertThat(resp.getIsVerified()).isTrue();
+        }
+    }
+
+    // ── getProviderByUserId ───────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("getProviderByUserId()")
+    class GetByUserIdTests {
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException when userId not found")
+        void shouldThrow_whenUserIdNotFound() {
+            given(providerRepository.findByUserId(5L)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> providerService.getProviderByUserId(5L))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("userId: 5");
+        }
+
+        @Test
+        @DisplayName("returns ProviderResponse when userId exists")
+        void shouldReturn_whenUserIdExists() {
+            Provider p = buildProvider(1L, 5L, false);
+            given(providerRepository.findByUserId(5L)).willReturn(Optional.of(p));
+
+            ProviderResponse resp = providerService.getProviderByUserId(5L);
+
+            assertThat(resp.getUserId()).isEqualTo(5L);
+        }
+    }
+
+    // ── getBySpecialization ───────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("getBySpecialization()")
+    class GetBySpecializationTests {
+
+        @Test
+        @DisplayName("returns list of matching providers")
+        void shouldReturnMatchingProviders() {
+            List<Provider> providers = List.of(
+                    buildProvider(1L, 2L, true),
+                    buildProvider(2L, 3L, false));
+            given(providerRepository.findBySpecializationIgnoreCase("Cardiology"))
+                    .willReturn(providers);
+
+            List<ProviderResponse> result = providerService.getBySpecialization("Cardiology");
+
+            assertThat(result).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("returns empty list when no provider matches")
+        void shouldReturnEmpty_whenNoMatch() {
+            given(providerRepository.findBySpecializationIgnoreCase("Neurology"))
+                    .willReturn(List.of());
+
+            List<ProviderResponse> result = providerService.getBySpecialization("Neurology");
+
+            assertThat(result).isEmpty();
+        }
+    }
+
+    // ── searchProviders ───────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("searchProviders()")
+    class SearchProvidersTests {
+
+        @Test
+        @DisplayName("returns matching providers from query")
+        void shouldReturnMatchingProviders() {
+            given(providerRepository.searchByNameOrSpecialization("heart"))
+                    .willReturn(List.of(buildProvider(1L, 2L, true)));
+
+            List<ProviderResponse> result = providerService.searchProviders("heart");
+
+            assertThat(result).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("returns empty list when query has no match")
+        void shouldReturnEmpty_whenNoMatch() {
+            given(providerRepository.searchByNameOrSpecialization("xyz"))
+                    .willReturn(List.of());
+
+            assertThat(providerService.searchProviders("xyz")).isEmpty();
+        }
+    }
+
+    // ── filterProviders ───────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("filterProviders()")
+    class FilterProvidersTests {
+
+        @Test
+        @DisplayName("delegates to repository with correct params")
+        void shouldDelegateToRepository() {
+            given(providerRepository.filterProviders("Cardiology", "Indore", 4.0))
+                    .willReturn(List.of(buildProvider(1L, 2L, true)));
+
+            List<ProviderResponse> result =
+                    providerService.filterProviders("Cardiology", "Indore", 4.0);
+
+            assertThat(result).hasSize(1);
+            verify(providerRepository).filterProviders("Cardiology", "Indore", 4.0);
+        }
+
+        @Test
+        @DisplayName("passes null params when not provided")
+        void shouldPassNullParams_whenNotProvided() {
+            given(providerRepository.filterProviders(null, null, null))
+                    .willReturn(List.of());
+
+            providerService.filterProviders(null, null, null);
+
+            verify(providerRepository).filterProviders(null, null, null);
+        }
+    }
+
+    // ── updateProvider ────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("updateProvider()")
+    class UpdateProviderTests {
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException when providerId not found")
+        void shouldThrow_whenNotFound() {
+            given(providerRepository.findById(77L)).willReturn(Optional.empty());
+            UpdateProviderRequest req = new UpdateProviderRequest();
+            req.setBio("New bio");
+
+            assertThatThrownBy(() -> providerService.updateProvider(77L, req))
+                    .isInstanceOf(ResourceNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("updates only non-null fields, leaves others unchanged")
+        void shouldUpdateOnlyNonNullFields() {
+            Provider p = buildProvider(1L, 2L, false);
+            given(providerRepository.findById(1L)).willReturn(Optional.of(p));
+            given(providerRepository.save(p)).willReturn(p);
+
+            UpdateProviderRequest req = new UpdateProviderRequest();
+            req.setBio("Updated bio");
+
+            providerService.updateProvider(1L, req);
+
+            assertThat(p.getBio()).isEqualTo("Updated bio");
+            assertThat(p.getSpecialization()).isEqualTo("Cardiology"); // unchanged
+            assertThat(p.getExperienceYears()).isEqualTo(10);          // unchanged
+        }
+
+        @Test
+        @DisplayName("saves after update and returns updated response")
+        void shouldSave_andReturnUpdated() {
+            Provider p = buildProvider(1L, 2L, false);
+            given(providerRepository.findById(1L)).willReturn(Optional.of(p));
+            given(providerRepository.save(p)).willReturn(p);
+
+            UpdateProviderRequest req = new UpdateProviderRequest();
+            req.setExperienceYears(15);
+            req.setClinicName("New Clinic Name");
+
+            ProviderResponse resp = providerService.updateProvider(1L, req);
+
+            assertThat(p.getExperienceYears()).isEqualTo(15);
+            assertThat(p.getClinicName()).isEqualTo("New Clinic Name");
+            verify(providerRepository).save(p);
+        }
+    }
+
+    // ── verifyProvider ────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("verifyProvider()")
+    class VerifyProviderTests {
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException when not found")
+        void shouldThrow_whenNotFound() {
+            given(providerRepository.findById(99L)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> providerService.verifyProvider(99L))
+                    .isInstanceOf(ResourceNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("throws IllegalStateException when already verified")
+        void shouldThrow_whenAlreadyVerified() {
+            Provider p = buildProvider(1L, 2L, true); // already verified
+            given(providerRepository.findById(1L)).willReturn(Optional.of(p));
+
+            assertThatThrownBy(() -> providerService.verifyProvider(1L))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("already verified");
+        }
+
+        @Test
+        @DisplayName("sets isVerified=true and saves when not yet verified")
+        void shouldSetVerifiedTrue() {
+            Provider p = buildProvider(1L, 2L, false); // not yet verified
+            given(providerRepository.findById(1L)).willReturn(Optional.of(p));
+
+            providerService.verifyProvider(1L);
+
+            assertThat(p.getIsVerified()).isTrue();
+            verify(providerRepository).save(p);
+        }
+    }
+
+    // ── rejectProvider ────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("rejectProvider()")
+    class RejectProviderTests {
+
+        @Test
+        @DisplayName("sets isVerified=false and isAvailable=false")
+        void shouldSetBothFlagsToFalse() {
+            Provider p = buildProvider(1L, 2L, true);
+            given(providerRepository.findById(1L)).willReturn(Optional.of(p));
+
+            providerService.rejectProvider(1L);
+
+            assertThat(p.getIsVerified()).isFalse();
+            assertThat(p.getIsAvailable()).isFalse();
+            verify(providerRepository).save(p);
+        }
+    }
+
+    // ── setAvailability ───────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("setAvailability()")
+    class SetAvailabilityTests {
+
+        @Test
+        @DisplayName("sets isAvailable=false correctly")
+        void shouldSetAvailabilityFalse() {
+            Provider p = buildProvider(1L, 2L, true);
+            given(providerRepository.findById(1L)).willReturn(Optional.of(p));
+
+            providerService.setAvailability(1L, false);
+
+            assertThat(p.getIsAvailable()).isFalse();
+            verify(providerRepository).save(p);
+        }
+
+        @Test
+        @DisplayName("sets isAvailable=true correctly")
+        void shouldSetAvailabilityTrue() {
+            Provider p = buildProvider(1L, 2L, true);
+            p.setIsAvailable(false);
+            given(providerRepository.findById(1L)).willReturn(Optional.of(p));
+
+            providerService.setAvailability(1L, true);
+
+            assertThat(p.getIsAvailable()).isTrue();
+        }
+    }
+
+    // ── deleteProvider ────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("deleteProvider()")
+    class DeleteProviderTests {
+
+        @Test
+        @DisplayName("throws ResourceNotFoundException when not found")
+        void shouldThrow_whenNotFound() {
+            given(providerRepository.findById(404L)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> providerService.deleteProvider(404L))
+                    .isInstanceOf(ResourceNotFoundException.class);
+        }
+
+        @Test
+        @DisplayName("calls repository.delete() for valid providerId")
+        void shouldCallDelete_forValidId() {
+            Provider p = buildProvider(1L, 2L, false);
+            given(providerRepository.findById(1L)).willReturn(Optional.of(p));
+
+            providerService.deleteProvider(1L);
+
+            verify(providerRepository).delete(p);
+        }
+    }
+
+    // ── updateRating ──────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("updateRating()")
+    class UpdateRatingTests {
+
+        @Test
+        @DisplayName("throws IllegalArgumentException when rating > 5")
+        void shouldThrow_whenRatingAbove5() {
+            Provider p = buildProvider(1L, 2L, true);
+            given(providerRepository.findById(1L)).willReturn(Optional.of(p));
+
+            assertThatThrownBy(() -> providerService.updateRating(1L, 5.1))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Rating must be between 0 and 5");
+        }
+
+        @Test
+        @DisplayName("throws IllegalArgumentException when rating < 0")
+        void shouldThrow_whenRatingBelow0() {
+            Provider p = buildProvider(1L, 2L, true);
+            given(providerRepository.findById(1L)).willReturn(Optional.of(p));
+
+            assertThatThrownBy(() -> providerService.updateRating(1L, -0.1))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @DisplayName("updates avgRating correctly for valid value")
+        void shouldUpdateRating_forValidValue() {
+            Provider p = buildProvider(1L, 2L, true);
+            given(providerRepository.findById(1L)).willReturn(Optional.of(p));
+
+            providerService.updateRating(1L, 4.3);
+
+            assertThat(p.getAvgRating()).isEqualTo(4.3);
+            verify(providerRepository).save(p);
+        }
+
+        @Test
+        @DisplayName("accepts boundary values 0.0 and 5.0")
+        void shouldAcceptBoundaryValues() {
+            Provider p1 = buildProvider(1L, 2L, true);
+            given(providerRepository.findById(1L)).willReturn(Optional.of(p1));
+            assertThatCode(() -> providerService.updateRating(1L, 0.0))
+                    .doesNotThrowAnyException();
+
+            Provider p2 = buildProvider(2L, 3L, true);
+            given(providerRepository.findById(2L)).willReturn(Optional.of(p2));
+            assertThatCode(() -> providerService.updateRating(2L, 5.0))
+                    .doesNotThrowAnyException();
+        }
+    }
+
+    // ── getAllProviders ───────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("getAllProviders()")
+    class GetAllTests {
+
+        @Test
+        @DisplayName("returns all providers from repository")
+        void shouldReturnAll() {
+            given(providerRepository.findAll()).willReturn(List.of(
+                    buildProvider(1L, 2L, true),
+                    buildProvider(2L, 3L, false)));
+
+            List<ProviderResponse> result = providerService.getAllProviders();
+
+            assertThat(result).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("returns empty list when no providers exist")
+        void shouldReturnEmpty_whenNoneExist() {
+            given(providerRepository.findAll()).willReturn(List.of());
+
+            assertThat(providerService.getAllProviders()).isEmpty();
+        }
+    }
+
+    // ── getVerifiedProviders ──────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("getVerifiedProviders()")
+    class GetVerifiedTests {
+
+        @Test
+        @DisplayName("returns only verified providers")
+        void shouldReturnOnlyVerified() {
+            given(providerRepository.findByIsVerified(true))
+                    .willReturn(List.of(buildProvider(1L, 2L, true)));
+
+            List<ProviderResponse> result = providerService.getVerifiedProviders();
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getIsVerified()).isTrue();
+        }
+    }
+
+    // ── countBySpecialization ─────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("countBySpecialization()")
+    class CountTests {
+
+        @Test
+        @DisplayName("returns count from repository")
+        void shouldReturnCount() {
+            given(providerRepository.countBySpecialization("Cardiology")).willReturn(5);
+
+            int count = providerService.countBySpecialization("Cardiology");
+
+            assertThat(count).isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("returns 0 when none found")
+        void shouldReturnZero_whenNoneFound() {
+            given(providerRepository.countBySpecialization("Neurology")).willReturn(0);
+
+            assertThat(providerService.countBySpecialization("Neurology")).isEqualTo(0);
+        }
+    }
+}
+```
+
+---
+
+### ProviderResourceTest.java
+
+```java
+package com.medibook.provider.resource;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.medibook.provider.config.GatewayJwtAuthenticationFilter;
+import com.medibook.provider.config.SecurityConfig;
+import com.medibook.provider.dto.request.ProviderRegistrationRequest;
+import com.medibook.provider.dto.request.UpdateProviderRequest;
+import com.medibook.provider.dto.response.ProviderResponse;
+import com.medibook.provider.exception.ResourceNotFoundException;
+import com.medibook.provider.service.ProviderService;
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(ProviderResource.class)
+@Import({SecurityConfig.class, GatewayJwtAuthenticationFilter.class})
+@DisplayName("ProviderResource — MockMvc Tests")
+class ProviderResourceTest {
+
+    @Autowired MockMvc mockMvc;
+    @Autowired ObjectMapper objectMapper;
+
+    @MockBean ProviderService providerService;
+    @MockBean com.medibook.provider.util.JwtUtil jwtUtil;
+
+    private static final String BASE = "/api/v1/providers";
+
+    private ProviderResponse sampleResponse(Long id, Long userId) {
+        return ProviderResponse.builder()
+                .providerId(id)
+                .userId(userId)
+                .specialization("Cardiology")
+                .qualification("MBBS, MD")
+                .experienceYears(10)
+                .bio("Specialist")
+                .clinicName("HeartCare")
+                .clinicAddress("Indore, MP")
+                .avgRating(0.0)
+                .isVerified(false)
+                .isAvailable(true)
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    // ── GET /providers (public) ───────────────────────────────────────────
+
+    @Test
+    @DisplayName("GET /providers — 200 OK without auth (public endpoint)")
+    void getAllProviders_shouldReturn200_withoutAuth() throws Exception {
+        given(providerService.getAllProviders()).willReturn(List.of(sampleResponse(1L, 2L)));
+
+        mockMvc.perform(get(BASE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].providerId").value(1))
+                .andExpect(jsonPath("$[0].specialization").value("Cardiology"));
+    }
+
+    @Test
+    @DisplayName("GET /providers/verified — 200 OK without auth")
+    void getVerified_shouldReturn200_withoutAuth() throws Exception {
+        given(providerService.getVerifiedProviders()).willReturn(List.of());
+
+        mockMvc.perform(get(BASE + "/verified"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /providers/{id} — 200 OK without auth")
+    void getById_shouldReturn200_withoutAuth() throws Exception {
+        given(providerService.getProviderById(1L)).willReturn(sampleResponse(1L, 2L));
+
+        mockMvc.perform(get(BASE + "/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.providerId").value(1));
+    }
+
+    @Test
+    @DisplayName("GET /providers/{id} — 404 when not found")
+    void getById_shouldReturn404_whenNotFound() throws Exception {
+        given(providerService.getProviderById(99L))
+                .willThrow(new ResourceNotFoundException("Provider not found with id: 99"));
+
+        mockMvc.perform(get(BASE + "/99"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Provider not found with id: 99"));
+    }
+
+    @Test
+    @DisplayName("GET /providers/user/{userId} — 200 OK without auth")
+    void getByUserId_shouldReturn200() throws Exception {
+        given(providerService.getProviderByUserId(2L)).willReturn(sampleResponse(1L, 2L));
+
+        mockMvc.perform(get(BASE + "/user/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(2));
+    }
+
+    @Test
+    @DisplayName("GET /providers/search?q=heart — 200 OK without auth")
+    void search_shouldReturn200_withoutAuth() throws Exception {
+        given(providerService.searchProviders("heart"))
+                .willReturn(List.of(sampleResponse(1L, 2L)));
+
+        mockMvc.perform(get(BASE + "/search").param("q", "heart"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].clinicName").value("HeartCare"));
+    }
+
+    @Test
+    @DisplayName("GET /providers/filter — 200 OK with all params")
+    void filter_shouldReturn200() throws Exception {
+        given(providerService.filterProviders("Cardiology", "Indore", 4.0))
+                .willReturn(List.of(sampleResponse(1L, 2L)));
+
+        mockMvc.perform(get(BASE + "/filter")
+                        .param("specialization", "Cardiology")
+                        .param("location", "Indore")
+                        .param("minRating", "4.0"))
+                .andExpect(status().isOk());
+    }
+
+    // ── POST /providers (requires PROVIDER or ADMIN) ──────────────────────
+
+    @Test
+    @WithMockUser(roles = {"PROVIDER"})
+    @DisplayName("POST /providers — 201 Created for PROVIDER role")
+    void register_shouldReturn201_forProvider() throws Exception {
+        ProviderRegistrationRequest req = new ProviderRegistrationRequest();
+        req.setUserId(2L);
+        req.setSpecialization("Cardiology");
+        req.setQualification("MBBS, MD");
+
+        given(providerService.registerProvider(any())).willReturn(sampleResponse(1L, 2L));
+
+        mockMvc.perform(post(BASE)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.providerId").value(1));
+    }
+
+    @Test
+    @DisplayName("POST /providers — 401 Unauthorized when no token")
+    void register_shouldReturn401_whenNoAuth() throws Exception {
+        mockMvc.perform(post(BASE)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = {"PATIENT"})
+    @DisplayName("POST /providers — 403 Forbidden for PATIENT role")
+    void register_shouldReturn403_forPatient() throws Exception {
+        mockMvc.perform(post(BASE)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"userId\":2,\"specialization\":\"Cardiology\",\"qualification\":\"MBBS\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = {"PROVIDER"})
+    @DisplayName("POST /providers — 400 when userId already has profile")
+    void register_shouldReturn400_whenDuplicate() throws Exception {
+        ProviderRegistrationRequest req = new ProviderRegistrationRequest();
+        req.setUserId(2L);
+        req.setSpecialization("Cardiology");
+        req.setQualification("MBBS");
+
+        given(providerService.registerProvider(any()))
+                .willThrow(new IllegalArgumentException("Provider profile already exists for userId: 2"));
+
+        mockMvc.perform(post(BASE)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Provider profile already exists for userId: 2"));
+    }
+
+    // ── PUT /providers/{id} ────────────────────────────────────────────────
+
+    @Test
+    @WithMockUser(roles = {"PROVIDER"})
+    @DisplayName("PUT /providers/{id} — 200 OK on successful update")
+    void update_shouldReturn200() throws Exception {
+        UpdateProviderRequest req = new UpdateProviderRequest();
+        req.setBio("Updated bio");
+
+        given(providerService.updateProvider(eq(1L), any())).willReturn(sampleResponse(1L, 2L));
+
+        mockMvc.perform(put(BASE + "/1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk());
+    }
+
+    // ── PUT /providers/{id}/verify (ADMIN only) ───────────────────────────
+
+    @Test
+    @WithMockUser(roles = {"ADMIN"})
+    @DisplayName("PUT /verify — 200 OK for ADMIN role")
+    void verify_shouldReturn200_forAdmin() throws Exception {
+        doNothing().when(providerService).verifyProvider(1L);
+
+        mockMvc.perform(put(BASE + "/1/verify").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message")
+                        .value("Provider 1 has been verified successfully."));
+    }
+
+    @Test
+    @WithMockUser(roles = {"PROVIDER"})
+    @DisplayName("PUT /verify — 403 Forbidden for non-ADMIN")
+    void verify_shouldReturn403_forProvider() throws Exception {
+        mockMvc.perform(put(BASE + "/1/verify").with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = {"ADMIN"})
+    @DisplayName("PUT /verify — 409 Conflict when already verified")
+    void verify_shouldReturn409_whenAlreadyVerified() throws Exception {
+        doThrow(new IllegalStateException("Provider is already verified: 1"))
+                .when(providerService).verifyProvider(1L);
+
+        mockMvc.perform(put(BASE + "/1/verify").with(csrf()))
+                .andExpect(status().isConflict());
+    }
+
+    // ── PUT /providers/{id}/reject (ADMIN only) ───────────────────────────
+
+    @Test
+    @WithMockUser(roles = {"ADMIN"})
+    @DisplayName("PUT /reject — 200 OK for ADMIN")
+    void reject_shouldReturn200_forAdmin() throws Exception {
+        doNothing().when(providerService).rejectProvider(1L);
+
+        mockMvc.perform(put(BASE + "/1/reject").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Provider 1 has been rejected."));
+    }
+
+    // ── PUT /providers/{id}/availability ──────────────────────────────────
+
+    @Test
+    @WithMockUser(roles = {"PROVIDER"})
+    @DisplayName("PUT /availability — 200 OK for PROVIDER role")
+    void setAvailability_shouldReturn200() throws Exception {
+        doNothing().when(providerService).setAvailability(1L, false);
+
+        mockMvc.perform(put(BASE + "/1/availability")
+                        .with(csrf())
+                        .param("available", "false"))
+                .andExpect(status().isOk());
+    }
+
+    // ── PUT /providers/{id}/rating ────────────────────────────────────────
+
+    @Test
+    @WithMockUser(roles = {"PROVIDER"})
+    @DisplayName("PUT /rating — 200 OK with valid rating")
+    void updateRating_shouldReturn200() throws Exception {
+        doNothing().when(providerService).updateRating(1L, 4.5);
+
+        mockMvc.perform(put(BASE + "/1/rating")
+                        .with(csrf())
+                        .param("rating", "4.5"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = {"PROVIDER"})
+    @DisplayName("PUT /rating — 400 when rating is out of bounds")
+    void updateRating_shouldReturn400_forOutOfBoundsRating() throws Exception {
+        doThrow(new IllegalArgumentException("Rating must be between 0 and 5"))
+                .when(providerService).updateRating(1L, 6.0);
+
+        mockMvc.perform(put(BASE + "/1/rating")
+                        .with(csrf())
+                        .param("rating", "6.0"))
+                .andExpect(status().isBadRequest());
+    }
+
+    // ── DELETE /providers/{id} (ADMIN only) ───────────────────────────────
+
+    @Test
+    @WithMockUser(roles = {"ADMIN"})
+    @DisplayName("DELETE /providers/{id} — 200 OK for ADMIN")
+    void delete_shouldReturn200_forAdmin() throws Exception {
+        doNothing().when(providerService).deleteProvider(1L);
+
+        mockMvc.perform(delete(BASE + "/1").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Provider 1 deleted successfully."));
+    }
+
+    @Test
+    @WithMockUser(roles = {"PROVIDER"})
+    @DisplayName("DELETE /providers/{id} — 403 Forbidden for non-ADMIN")
+    void delete_shouldReturn403_forNonAdmin() throws Exception {
+        mockMvc.perform(delete(BASE + "/1").with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("DELETE /providers/{id} — 401 when no auth")
+    void delete_shouldReturn401_whenNoAuth() throws Exception {
+        mockMvc.perform(delete(BASE + "/1").with(csrf()))
+                .andExpect(status().isUnauthorized());
+    }
+}
+```
+
+---
+
+### GlobalExceptionHandlerTest.java
+
+```java
+package com.medibook.provider.exception;
+
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("GlobalExceptionHandler — Unit Tests")
+class GlobalExceptionHandlerTest {
+
+    @InjectMocks private GlobalExceptionHandler handler;
+
+    @Test
+    @DisplayName("ResourceNotFoundException → 404 with correct message")
+    void shouldReturn404_forResourceNotFoundException() {
+        var ex = new ResourceNotFoundException("Provider not found with id: 1");
+        var response = handler.handleNotFound(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(404);
+        assertThat(response.getBody().message()).isEqualTo("Provider not found with id: 1");
+        assertThat(response.getBody().timestamp()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("IllegalArgumentException → 400 with correct message")
+    void shouldReturn400_forIllegalArgumentException() {
+        var ex = new IllegalArgumentException("Provider profile already exists for userId: 2");
+        var response = handler.handleBadRequest(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().status()).isEqualTo(400);
+        assertThat(response.getBody().message())
+                .isEqualTo("Provider profile already exists for userId: 2");
+    }
+
+    @Test
+    @DisplayName("IllegalStateException → 409 with correct message")
+    void shouldReturn409_forIllegalStateException() {
+        var ex = new IllegalStateException("Provider is already verified: 1");
+        var response = handler.handleConflict(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody().status()).isEqualTo(409);
+        assertThat(response.getBody().message()).isEqualTo("Provider is already verified: 1");
+    }
+
+    @Test
+    @DisplayName("MethodArgumentNotValidException → 400 with field errors map")
+    @SuppressWarnings("unchecked")
+    void shouldReturn400_withFieldErrors() {
+        FieldError error = new FieldError("req", "specialization", "Specialization is required");
+        BindingResult bindingResult = mock(BindingResult.class);
+        given(bindingResult.getAllErrors()).willReturn(List.of(error));
+        MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
+        given(ex.getBindingResult()).willReturn(bindingResult);
+
+        var response = handler.handleValidation(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().get("status")).isEqualTo(400);
+        Map<String, String> errors = (Map<String, String>) response.getBody().get("errors");
+        assertThat(errors).containsEntry("specialization", "Specialization is required");
+    }
+
+    @Test
+    @DisplayName("Multiple field errors all appear in errors map")
+    @SuppressWarnings("unchecked")
+    void shouldIncludeAllFieldErrors() {
+        FieldError e1 = new FieldError("req", "specialization", "required");
+        FieldError e2 = new FieldError("req", "qualification", "required");
+        BindingResult br = mock(BindingResult.class);
+        given(br.getAllErrors()).willReturn(List.of(e1, e2));
+        MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
+        given(ex.getBindingResult()).willReturn(br);
+
+        var body = handler.handleValidation(ex).getBody();
+        Map<String, String> errors = (Map<String, String>) body.get("errors");
+
+        assertThat(errors).hasSize(2);
+        assertThat(errors).containsKey("specialization");
+        assertThat(errors).containsKey("qualification");
+    }
+}
+```
+
+---
+
+## ❌ Error Responses
+
+All errors return consistent JSON matching the format from `GlobalExceptionHandler`:
+
+```json
+{
+  "status": 404,
+  "message": "Provider not found with id: 99",
+  "timestamp": "2026-04-21T10:30:00"
+}
+```
+
+| HTTP Code | Triggered By |
+|-----------|-------------|
+| `400 Bad Request` | Validation failure, duplicate userId, rating out of range |
+| `401 Unauthorized` | Missing or invalid Authorization header on protected endpoint |
+| `403 Forbidden` | Wrong role — e.g. PATIENT calling POST /providers or PROVIDER calling /verify |
+| `404 Not Found` | providerId or userId not found in database |
+| `409 Conflict` | Trying to verify an already-verified provider |
+
+---
+
+## 📖 Swagger UI
+
+Once running, open:
+
+```
+http://localhost:8082/swagger-ui.html
+```
+
+All 15 endpoints are listed under the **Providers** tag with full request/response schemas.
+
+```
+http://localhost:8082/api-docs          ← OpenAPI JSON spec
+http://localhost:8082/actuator/health   ← Service health
+http://localhost:8082/actuator/info     ← Service info
+http://localhost:8082/actuator/metrics  ← JVM metrics
+```
+
+---
+
+## 🔧 Common Issues & Fixes
+
+### Issue 1: 403 Forbidden on POST /providers
+
+You are sending a PATIENT token instead of a PROVIDER token.
+
+**Fix:** Login with a PROVIDER-role account and use that token.
+
+---
+
+### Issue 2: 400 — "Provider profile already exists for userId"
+
+You already called `POST /providers` with this userId.
+
+**Fix:** Each auth-service user can only have one provider profile. Use `GET /providers/user/{userId}` to check if it exists, then use `PUT /providers/{id}` to update it.
+
+---
+
+### Issue 3: Provider not showing in `/filter` results after registration
+
+Newly registered providers have `isVerified = false` by default. The `/filter` endpoint only returns `isVerified = true AND isAvailable = true` providers.
+
+**Fix:** Call `PUT /providers/{providerId}/verify` with an ADMIN token first.
+
+---
+
+### Issue 4: JWT_SECRET not set
+
+```
+java.lang.IllegalArgumentException: Could not resolve placeholder 'JWT_SECRET'
+```
+
+**Fix:** Set the environment variable before running:
+```cmd
+set JWT_SECRET=medibook-super-secret-key-must-be-at-least-256-bits-long-change-in-prod
+```
+
+---
+
+### Issue 5: Eureka connection refused warnings
+
+```
+Cannot execute request on any known server
+```
+
+This is normal when Eureka is not running. The service itself starts fine.
+
+**Fix:** Set `EUREKA_ENABLED=false` to silence these warnings during development.
+
+---
+
+### Issue 6: MySQL table not created
+
+```
+Table 'provider_db.providers' doesn't exist
+```
+
+**Fix:** Make sure `provider_db` database exists and `ddl-auto: update` is set. If the table still isn't created, check that the DB_URL env variable points to `provider_db`, not another database.
 
 ---
 
@@ -760,47 +2079,32 @@ eureka:
 
 ```
 Repository  : MediBook-Microservices
-Branch      : feature/api-gateway
+Branch      : feature/provider-service
 Base Branch : develop
+Depends On  : feature/auth-service (userId comes from auth-service)
 Merge Target: develop (PR required)
-Start After : feature/eureka-server must be merged first
 ```
 
 **Commit convention:**
 ```
-feat(gateway): add JWT authentication global filter
-feat(gateway): add CORS global configuration
-feat(gateway): add route for notification-service
-fix(gateway): handle null userId in JWT claims forwarding
-refactor(gateway): extract public paths to constant list
-docs(gateway): update README with route table
+feat(provider): add provider registration with userId validation
+feat(provider): add admin verify/reject endpoints
+feat(provider): add advanced filter query for patient search
+fix(provider): fix filterProviders to only return verified+available
+refactor(provider): extract mapToResponse to private helper
+test(provider): add unit tests for ProviderServiceImpl
+docs(provider): add README with full API reference
 ```
-
----
-
-## 📝 Key Design Decisions
-
-**Why Spring Cloud Gateway instead of Zuul?**
-Zuul 1 is blocking/servlet-based and no longer actively developed. Spring Cloud Gateway is the modern replacement — reactive, non-blocking, and officially supported by the Spring team.
-
-**Why validate JWT at the gateway and not in each service?**
-Centralizing JWT validation at the gateway means: (1) each downstream service doesn't need the JWT secret or jjwt library, (2) one place to update security logic, (3) downstream services simply trust the `X-User-*` headers the gateway injects.
-
-**Why `StripPrefix=0`?**
-The downstream services expose their APIs under the same path prefix (e.g., `auth-service` listens on `/api/v1/auth/**`). Without `StripPrefix=0`, the gateway would strip the path prefix before forwarding, breaking the downstream route matching.
-
-**Why `order = -1` for the JWT filter?**
-Order `-1` ensures the JWT filter runs before Spring Cloud Gateway's built-in route filters (which have order 0 and above). This guarantees that unauthorized requests are rejected before any routing logic executes.
 
 ---
 
 ## 👨‍💻 Developer Notes
 
-- The gateway has **no database** — it is completely stateless
-- The gateway shares the **same JWT secret** as `auth-service` — keep them in sync via the same environment variable
-- `discovery.locator.enabled: true` means any new service that registers with Eureka is automatically accessible at `http://localhost:8080/service-name/**` without adding a manual route entry
-- For production, add **rate limiting** using Spring Cloud Gateway's `RequestRateLimiter` filter with Redis
-- For production, add **circuit breaking** using Spring Cloud CircuitBreaker (Resilience4j) to handle downstream service failures gracefully
+- `userId` is intentionally a plain `Long` with no JPA `@ManyToOne`. This is the microservice pattern — no cross-database joins. The provider-service trusts the userId it receives.
+- `GatewayJwtAuthenticationFilter` supports both gateway and direct-call scenarios to allow isolated development and testing without needing the full platform running.
+- `filterProviders()` is the most important query for patient-facing search — it enforces both `isVerified=true` AND `isAvailable=true` so only active, approved providers appear.
+- The `/rating` endpoint has no role restriction by design — it's intended to be called by `review-service` as an internal service-to-service call. In production, add an inter-service API key or restrict to internal network.
+- `ddl-auto: update` is appropriate for development. Change to `validate` in production after the schema is stable.
 
 ---
 
@@ -808,13 +2112,13 @@ Order `-1` ensures the JWT filter runs before Spring Cloud Gateway's built-in ro
 
 [Harshal Choudhary](https://github.com/Harshal-25C) - Software Developer👨‍💻 | Cloud Enthusiast  
 B.Tech - `[Computer Science & Engineering]`  
-Java | Spring Boot | Spring Cloud | JWT & Security | React.js | Clean Architecture
+Java | Spring Boot | Spring Security | JWT | MySQL | Clean Architecture
 
 ---
 
 <div align="center">
 
-**MediBook API Gateway** | Part of MediBook Microservices Platform
+**MediBook Provider Service** | Part of MediBook Microservices Platform
 
 *Confidential | MediBook Platform | Internal Use Only*
 
