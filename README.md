@@ -1103,6 +1103,15 @@ OpenAPI JSON docs available at `/api-docs` on each service.
 
 <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
+### Author👨‍💻
+
+[Harshal Choudhary](https://github.com/Harshal-25C) - Software Developer👨‍💻 | Cloud Enthusiast  
+B.Tech - `[Computer Science & Engineering]`  
+Java | Spring Boot | Spring Security | JWT | MySQL | Clean Architecture
+
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
 <div align="center">
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=100&section=footer" width="100%"/>
