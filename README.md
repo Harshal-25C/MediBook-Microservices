@@ -1,1034 +1,1127 @@
-# MediBook — Schedule Service (UC3)
+<div align="center">
 
-> **MediBook Microservices** · Feature Branch: `feature/UC3-schedule-service`  
-> Part of the MediBook Online Appointment Booking System
+<!-- Animated Banner -->
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=200&section=header&text=MediBook%20Appointment%20Service&fontSize=40&fontColor=fff&animation=fadeIn&fontAlignY=38&desc=UC4%20·%20Microservices%20·%20Spring%20Boot%203.2&descAlignY=55&descAlign=50" width="100%"/>
 
----
+<!-- Animated Typing -->
+<a href="#">
+  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&size=22&duration=3000&pause=800&color=00D4FF&center=true&vCenter=true&multiline=true&width=600&height=60&lines=Book+·+Cancel+·+Reschedule+·+Complete;Powered+by+RabbitMQ+%2B+Feign+%2B+Eureka" alt="Typing SVG" />
+</a>
 
-## Table of Contents
+<br/>
 
-1. [Overview](#overview)
-2. [System Architecture](#system-architecture)
-3. [Service Port Map](#service-port-map)
-4. [Schedule Service — Deep Dive](#schedule-service--deep-dive)
-   - [Tech Stack](#tech-stack)
-   - [Project Structure](#project-structure)
-   - [Entity: AvailabilitySlot](#entity-availabilityslot)
-   - [DTOs](#dtos)
-   - [Business Logic Highlights](#business-logic-highlights)
-   - [Automated Scheduler](#automated-scheduler)
-5. [API Gateway](#api-gateway)
-   - [JWT Authentication Flow](#jwt-authentication-flow)
-   - [Public vs Protected Routes](#public-vs-protected-routes)
-   - [Forwarded Headers](#forwarded-headers)
-6. [All Services Reference](#all-services-reference)
-7. [API Endpoints](#api-endpoints)
-8. [API Testing via API Gateway](#api-testing-via-api-gateway)
-   - [Prerequisites — Get a JWT Token](#prerequisites--get-a-jwt-token)
-   - [1. Add a Single Slot](#1-add-a-single-slot)
-   - [2. Add Bulk Slots](#2-add-bulk-slots)
-   - [3. Generate Recurring Slots (Daily)](#3-generate-recurring-slots-daily)
-   - [4. Generate Recurring Slots (Weekly)](#4-generate-recurring-slots-weekly)
-   - [5. Get All Slots for a Provider](#5-get-all-slots-for-a-provider)
-   - [6. Get Available Slots for a Provider on a Date](#6-get-available-slots-for-a-provider-on-a-date)
-   - [7. Get a Slot by ID](#7-get-a-slot-by-id)
-   - [8. Update a Slot](#8-update-a-slot)
-   - [9. Block a Slot](#9-block-a-slot)
-   - [10. Unblock a Slot](#10-unblock-a-slot)
-   - [11. Delete a Slot](#11-delete-a-slot)
-   - [12. Book a Slot (Internal)](#12-book-a-slot-internal)
-   - [13. Release a Slot (Internal)](#13-release-a-slot-internal)
-9. [Error Responses](#error-responses)
-10. [Environment Variables](#environment-variables)
-11. [Running the Services](#running-the-services)
-12. [Database Setup](#database-setup)
-13. [Swagger UI](#swagger-ui)
+<!-- Badges -->
+![Java](https://img.shields.io/badge/Java_17-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot_3.2-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL_8-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
+![Spring Cloud](https://img.shields.io/badge/Spring_Cloud-6DB33F?style=for-the-badge&logo=spring&logoColor=white)
+![Swagger](https://img.shields.io/badge/Swagger_UI-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)
+
+<br/>
+
+![Port](https://img.shields.io/badge/PORT-8084-blue?style=flat-square)
+![Database](https://img.shields.io/badge/DB-appointment__db-blue?style=flat-square)
+![UC4](https://img.shields.io/badge/UC4-Appointment_Service-brightgreen?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
+
+</div>
 
 ---
 
-## Overview
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
-The **Schedule Service** is the UC3 microservice in MediBook responsible for managing doctor availability slots. It allows healthcare providers (doctors) to create, manage, and control time slots for patient appointments.
+## 📋 Table of Contents
 
-Key responsibilities:
-- Create single or bulk availability slots for a provider
-- Generate recurring slots (daily or weekly patterns)
-- Block/unblock slots for personal unavailability
-- Serve available slots to patients for appointment booking
-- Integrate with `appointment-service` via internal Feign endpoints for slot booking and release
-- Auto-purge expired unbooked slots every night at midnight via a scheduled job
-- Prevent double-booking using JPA optimistic locking (`@Version`)
+- [Overview](#-overview)
+- [System Architecture](#-system-architecture)
+- [Service Port Map](#-service-port-map)
+- [Appointment Service Deep Dive](#-appointment-service-deep-dive)
+  - [Tech Stack](#tech-stack)
+  - [Project Structure](#project-structure)
+  - [Entity: Appointment](#entity-appointment)
+  - [DTOs](#dtos)
+  - [Feign Client — SlotClient](#feign-client--slotclient)
+  - [RabbitMQ Messaging](#-rabbitmq-messaging)
+  - [NoShow Detection Scheduler](#noshow-detection-scheduler)
+  - [Business Logic Rules](#business-logic-rules)
+- [Appointment Lifecycle](#-appointment-lifecycle)
+- [API Endpoints Summary](#-api-endpoints-summary)
+- [API Testing via Gateway](#-api-testing-via-api-gateway)
+- [Error Responses](#-error-responses)
+- [Environment Variables](#-environment-variables)
+- [Running the Services](#-running-the-services)
+- [Database Setup](#-database-setup)
+- [Swagger UI](#-swagger-ui)
 
----
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
-## System Architecture
+## 🏥 Overview
+
+The **Appointment Service** is the **UC4** microservice in the MediBook Online Appointment Booking System. It acts as the central coordinator for everything appointment-related — orchestrating communication between the patient, the doctor's slot availability (UC3 / schedule-service), payment processing (UC5), reviews (UC6), and notifications (UC7).
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                          CLIENT (Browser / App)                  │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │ HTTP Requests
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    API GATEWAY  :8080                            │
-│   • Global JWT Authentication Filter                            │
-│   • Routes: /auth/**, /providers/**, /slots/**, /appointments/**│
-│   • CORS handling (localhost:5173, localhost:5174)               │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │ lb:// (Eureka Load Balancer)
-           ┌───────────────────┼──────────────────────┐
-           ▼                   ▼                      ▼
-   ┌──────────────┐   ┌──────────────────┐   ┌──────────────────┐
-   │ auth-service │   │ provider-service │   │ schedule-service │
-   │   :8081      │   │    :8082         │   │    :8083         │
-   │  auth_db     │   │  provider_db     │   │  schedule_db     │
-   └──────────────┘   └──────────────────┘   └──────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│               EUREKA SERVER  :8761                              │
-│   • Service Registry & Discovery                                │
-│   • Basic Auth: admin / medibook123                             │
-└─────────────────────────────────────────────────────────────────┘
+Patient books a slot → Appointment created → Feign → schedule-service marks slot BOOKED
+                                           → RabbitMQ → notification-service sends alerts
 ```
 
----
+**Key responsibilities:**
 
-## Service Port Map
+- Book, cancel, reschedule, and complete appointments
+- Coordinate slot locking/releasing with `schedule-service` via **OpenFeign**
+- Publish lifecycle events (`BOOKED`, `CANCELLED`, `COMPLETED`) to **RabbitMQ** for `notification-service`
+- Automatically detect and flag `NO_SHOW` appointments via a scheduled job (runs every hour)
+- Expose appointment history to patients and doctors
 
-| Service              | Port  | Database       | Notes                          |
-|----------------------|-------|----------------|--------------------------------|
-| `eureka-server`      | 8761  | —              | Start **first**                |
-| `api-gateway`        | 8080  | —              | Start **second**, all traffic goes here |
-| `auth-service`       | 8081  | `auth_db`      | JWT issuance, OTP, OAuth2      |
-| `provider-service`   | 8082  | `provider_db`  | Doctor profile management      |
-| `schedule-service`   | 8083  | `schedule_db`  | **This service — UC3**         |
-| `appointment-service`| 8084  | `appointment_db`| UC4 — uses schedule internally |
-| `payment-service`    | 8085  | `payment_db`   | UC5                            |
-| `review-service`     | 8086  | `review_db`    | UC6                            |
-| `notification-service`| 8087 | `notification_db`| UC7                          |
-| `record-service`     | 8088  | `record_db`    | UC8                            |
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
----
+## 🏗️ System Architecture
 
-## Schedule Service — Deep Dive
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                       CLIENT (Browser / App)                          │
+└───────────────────────────────┬──────────────────────────────────────┘
+                                │ HTTP Requests
+                                ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                    API GATEWAY  :8080                                 │
+│   • JWT Authentication (JwtAuthenticationFilter)                     │
+│   • Forwards: X-User-Id, X-User-Role, X-User-Email                  │
+│   • Routes /appointments/** → lb://appointment-service               │
+└──────────────────────────────┬───────────────────────────────────────┘
+                               │ Eureka lb://
+        ┌──────────────────────┼───────────────────────┐
+        ▼                      ▼                       ▼
+┌──────────────┐   ┌──────────────────────┐   ┌──────────────────┐
+│ auth-service │   │  appointment-service │   │ schedule-service │
+│   :8081      │   │       :8084          ├──►│    :8083         │
+│  auth_db     │   │   appointment_db     │   │  schedule_db     │
+└──────────────┘   └──────────┬───────────┘   └──────────────────┘
+                              │ RabbitMQ publish
+                              ▼
+                   ┌────────────────────────┐
+                   │   RabbitMQ  :5672      │
+                   │  medibook.exchange     │
+                   │  (TopicExchange)       │
+                   └────────────┬───────────┘
+                                │ Consumed by
+                                ▼
+                   ┌────────────────────────┐
+                   │  notification-service  │
+                   │       :8087            │
+                   └────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                     EUREKA SERVER  :8761                              │
+│            Service Registry  (admin / medibook123)                   │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+## 🗺️ Service Port Map
+
+| Service | Port | Database | Notes |
+|---|---|---|---|
+| `eureka-server` | **8761** | — | Start **first** always |
+| `api-gateway` | **8080** | — | Start **second**, all traffic here |
+| `auth-service` | **8081** | `auth_db` | JWT issuance, OTP, OAuth2 |
+| `provider-service` | **8082** | `provider_db` | Doctor profile management (UC2) |
+| `schedule-service` | **8083** | `schedule_db` | Slot management (UC3) |
+| `appointment-service` | **8084** | `appointment_db` | **← This service (UC4)** |
+| `payment-service` | **8085** | `payment_db` | UC5 |
+| `review-service` | **8086** | `review_db` | UC6 |
+| `notification-service` | **8087** | `notification_db` | UC7 — consumes RabbitMQ events |
+| `record-service` | **8088** | `record_db` | UC8 |
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+## 🔬 Appointment Service Deep Dive
 
 ### Tech Stack
 
-| Layer       | Technology                                               |
-|-------------|----------------------------------------------------------|
-| Language    | Java 17                                                  |
-| Framework   | Spring Boot 3.2.0                                        |
-| Cloud       | Spring Cloud 2023.0.0 (Eureka Client, OpenFeign)         |
-| Database    | MySQL 8 — `schedule_db`                                  |
-| ORM         | Spring Data JPA / Hibernate                              |
-| Security    | Spring Security (stateless, JWT validated at gateway)    |
-| Scheduler   | Spring `@Scheduled` (Quartz also on classpath)           |
-| Docs        | Springdoc OpenAPI 2.3.0 (Swagger UI)                     |
-| Build       | Maven 3, parent POM at root                              |
-| Lombok      | 1.18.30                                                  |
-| JWT Library | JJWT 0.11.5                                              |
+| Layer | Technology |
+|---|---|
+| Language | Java 17 |
+| Framework | Spring Boot 3.2.0 |
+| Cloud | Spring Cloud 2023.0.0 (Eureka Client, OpenFeign) |
+| Database | MySQL 8 — `appointment_db` |
+| ORM | Spring Data JPA / Hibernate |
+| Messaging | Spring AMQP / RabbitMQ (TopicExchange, 3 queues) |
+| Security | Spring Security (stateless, JWT validated at gateway) |
+| Scheduler | Spring `@Scheduled` + Quartz on classpath |
+| Docs | Springdoc OpenAPI 2.3.0 (Swagger UI) |
+| Serialization | Jackson2JsonMessageConverter (JSON over RabbitMQ) |
+| Build | Maven 3, parent POM at root |
+| Lombok | 1.18.30 |
+| JWT Library | JJWT 0.11.5 |
 
 ### Project Structure
 
 ```
-schedule-service/
-└── src/main/java/com/medibook/schedule/
-    ├── ScheduleServiceApplication.java      # Main entry point
+appointment-service/
+└── src/main/java/com/medibook/appointment/
+    ├── AppointmentServiceApplication.java       # Main — @EnableFeignClients, @EnableDiscoveryClient
+    ├── client/
+    │   └── SlotClient.java                      # Feign → schedule-service (get/book/release slot)
     ├── config/
-    │   └── SecurityConfig.java              # Stateless, all routes permitted (gateway validates JWT)
+    │   ├── RabbitMQConfig.java                  # Exchange, 3 queues, bindings, JSON converter
+    │   └── SecurityConfig.java                  # Stateless, all routes permitAll (JWT at gateway)
     ├── dto/
-    │   └── request/
-    │       └── SlotRequest.java             # Request DTO for creating/updating slots
+    │   ├── AppointmentRequest.java              # Patient booking form DTO (with validation)
+    │   ├── AppointmentEventDto.java             # RabbitMQ message payload (BOOKED/CANCELLED/COMPLETED)
+    │   └── SlotDto.java                         # Feign response from schedule-service
     ├── entity/
-    │   └── AvailabilitySlot.java            # JPA entity → availability_slots table
+    │   └── Appointment.java                     # JPA entity → appointments table
     ├── exception/
-    │   ├── BadRequestException.java         # 400 errors
-    │   ├── ResourceNotFoundException.java   # 404 errors
-    │   ├── DuplicateResourceException.java  # 409 errors
-    │   ├── ForbiddenException.java          # 403 errors
-    │   ├── UnauthorizedException.java       # 401 errors
-    │   ├── ErrorResponse.java               # Standardized error response shape
-    │   └── GlobalExceptionHandler.java      # @ControllerAdvice — catches all exceptions
+    │   ├── BadRequestException.java             # 400
+    │   ├── ResourceNotFoundException.java       # 404
+    │   ├── DuplicateResourceException.java      # 409
+    │   ├── ForbiddenException.java              # 403
+    │   ├── UnauthorizedException.java           # 401
+    │   ├── ErrorResponse.java                   # Standardized error shape
+    │   └── GlobalExceptionHandler.java          # @ControllerAdvice — catches all
+    ├── messaging/
+    │   └── AppointmentEventPublisher.java       # RabbitMQ producer (publishBooked/Cancelled/Completed)
     ├── repository/
-    │   └── SlotRepository.java              # JPA repository with custom JPQL queries
+    │   └── AppointmentRepository.java           # JPA repo with custom JPQL queries
     ├── resource/
-    │   └── ScheduleResource.java            # REST Controller — /slots/**
+    │   └── AppointmentResource.java             # REST controller — /appointments/**
     ├── scheduler/
-    │   └── SlotExpiryScheduler.java         # Cron job: midnight expiry cleanup
+    │   └── NoShowDetectionScheduler.java        # Cron: every hour, marks NO_SHOW
     └── service/
-        ├── ScheduleService.java             # Interface (contract)
+        ├── AppointmentService.java              # Interface contract
         └── impl/
-            └── ScheduleServiceImpl.java     # Business logic implementation
+            └── AppointmentServiceImpl.java      # Business logic implementation
 ```
 
-### Entity: AvailabilitySlot
+### Entity: Appointment
 
-Maps to the `availability_slots` table in `schedule_db`.
+Maps to the `appointments` table in `appointment_db`.
 
-| Column           | Type          | Nullable | Default | Description                                         |
-|------------------|---------------|----------|---------|-----------------------------------------------------|
-| `slotId`         | INT (PK, AI)  | No       | —       | Auto-generated primary key                          |
-| `providerId`     | INT           | No       | —       | FK reference to Provider (from UC2)                 |
-| `date`           | DATE          | No       | —       | The calendar date of this slot                      |
-| `startTime`      | TIME          | No       | —       | Slot start time (e.g., 10:00)                       |
-| `endTime`        | TIME          | No       | —       | Slot end time (e.g., 10:30)                         |
-| `durationMinutes`| INT           | No       | —       | Appointment duration in minutes                     |
-| `isBooked`       | BOOLEAN       | No       | false   | true when a patient has booked this slot            |
-| `isBlocked`      | BOOLEAN       | No       | false   | true when doctor has manually blocked this slot     |
-| `recurrence`     | VARCHAR       | Yes      | `NONE`  | `NONE` / `DAILY` / `WEEKLY`                         |
-| `createdAt`      | DATETIME      | No       | auto    | Set automatically via `@PrePersist`                 |
-| `version`        | INT           | No       | 0       | JPA optimistic locking — prevents double booking    |
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `appointmentId` | INT (PK, AI) | No | — | Auto-generated primary key |
+| `patientId` | INT | No | — | User ID of the patient (from UC1) |
+| `providerId` | INT | No | — | Provider ID of the doctor (from UC2) |
+| `patientEmail` | VARCHAR | Yes | — | Patient email for notification routing |
+| `slotId` | INT | No | — | FK to `availability_slots` (from UC3) |
+| `serviceType` | VARCHAR | No | — | e.g., General Consultation, Dental Checkup |
+| `appointmentDate` | DATE | No | — | Calendar date of the appointment |
+| `startTime` | TIME | No | — | Appointment start time |
+| `endTime` | TIME | No | — | Appointment end time |
+| `status` | VARCHAR | No | `SCHEDULED` | `PENDING_PAYMENT` → `SCHEDULED` / `CONFIRMED` / `CANCELLED` / `COMPLETED` / `NO_SHOW` |
+| `notes` | TEXT | Yes | — | Optional patient notes |
+| `modeOfConsultation` | VARCHAR | No | — | `IN_PERSON` or `TELECONSULTATION` |
+| `createdAt` | DATETIME | No | auto | Set via `@PrePersist` |
+| `updatedAt` | DATETIME | Yes | auto | Updated via `@PreUpdate` |
 
-**Double-Booking Prevention:** The `@Version` field on the entity ensures that if two patients simultaneously attempt to book the same slot, the JPA optimistic lock detects the version conflict and throws an `OptimisticLockException`, allowing only one booking to succeed.
+> **Status Flow:** `PENDING_PAYMENT` → (payment webhook) → `CONFIRMED` / `SCHEDULED` → `COMPLETED` / `CANCELLED` / `NO_SHOW`
 
 ### DTOs
 
-**`SlotRequest`** — used for all create and update operations:
+**`AppointmentRequest`** — the patient's booking form:
 
-| Field              | Type       | Required | Validation              | Description                                     |
-|--------------------|------------|----------|-------------------------|-------------------------------------------------|
-| `providerId`       | int        | Yes      | `@NotNull`              | Provider (doctor) ID                            |
-| `date`             | LocalDate  | Yes      | `@NotNull`              | Slot date (e.g., `2026-05-10`)                  |
-| `startTime`        | LocalTime  | Yes      | `@NotNull`              | Start time (e.g., `10:00`)                      |
-| `endTime`          | LocalTime  | Yes      | `@NotNull`              | End time (e.g., `10:30`)                        |
-| `durationMinutes`  | int        | Yes      | `@Min(1)`               | Duration in minutes, minimum 1                 |
-| `recurrence`       | String     | No       | —                       | `NONE` (default) / `DAILY` / `WEEKLY`           |
-| `recurrenceEndDate`| LocalDate  | No       | —                       | Required only when recurrence ≠ `NONE`          |
+| Field | Type | Required | Validation | Description |
+|---|---|---|---|---|
+| `patientId` | int | Yes | `@NotNull` | Patient user ID |
+| `providerId` | int | Yes | `@NotNull` | Doctor's provider ID |
+| `patientEmail` | String | No | — | Used for RabbitMQ notification routing |
+| `slotId` | int | Yes | `@NotNull` | Selected availability slot ID |
+| `serviceType` | String | Yes | `@NotBlank` | Type of medical service requested |
+| `appointmentDate` | LocalDate | Yes | `@NotNull` | Date matching the selected slot |
+| `startTime` | LocalTime | Yes | `@NotNull` | Start time matching the selected slot |
+| `endTime` | LocalTime | Yes | `@NotNull` | End time matching the selected slot |
+| `modeOfConsultation` | String | Yes | `@NotBlank` | `IN_PERSON` or `TELECONSULTATION` |
+| `notes` | String | No | — | Optional pre-consultation notes |
 
-### Business Logic Highlights
+**`AppointmentEventDto`** — RabbitMQ message payload:
 
-**`addSlot`** — validates the date is not in the past before saving.
+| Field | Description |
+|---|---|
+| `appointmentId` | The appointment being notified about |
+| `patientId` | Patient to notify |
+| `providerId` | Doctor to notify |
+| `eventType` | `BOOKED`, `CANCELLED`, or `COMPLETED` |
+| `serviceType` | For the notification message body |
+| `modeOfConsultation` | Consultation type for context |
+| `appointmentDate` | Human-readable date string |
+| `startTime` / `endTime` | Appointment time strings |
+| `message` | Pre-built human-readable notification text |
 
-**`addBulkSlots`** — loops through a list of `SlotRequest` objects and calls `addSlot()` for each, ensuring individual validation per slot.
+**`SlotDto`** — Feign response from `schedule-service`:
 
-**`generateRecurringSlots`** — requires `recurrenceEndDate` to be set and after `date`. Iterates from `date` to `recurrenceEndDate`, incrementing by 1 day (DAILY) or 1 week (WEEKLY), creating a slot at each step.
+| Field | Description |
+|---|---|
+| `slotId` | Slot identifier |
+| `providerId` | Doctor who owns this slot |
+| `date` | Slot date |
+| `startTime` / `endTime` | Slot time window |
+| `durationMinutes` | Duration in minutes |
+| `isBooked` | Whether slot is already taken |
+| `isBlocked` | Whether doctor has blocked it |
 
-**`blockSlot`** — sets `isBlocked = true`. A blocked slot is invisible to patients. Cannot block an already-booked slot.
+### Feign Client — SlotClient
 
-**`unblockSlot`** — sets `isBlocked = false`. The slot immediately reappears in patient searches.
+Communicates directly with `schedule-service` using Spring Cloud OpenFeign. Resolves the service by name via Eureka (`lb://schedule-service`).
 
-**`bookSlot`** — called internally by `appointment-service`. Validates the slot is not already booked or blocked, then sets `isBooked = true`. The `@Transactional` annotation combined with `@Version` ensures race-condition safety.
+```java
+@FeignClient(name = "schedule-service")
+public interface SlotClient {
+    @GetMapping("/slots/{slotId}")
+    SlotDto getSlotById(@PathVariable("slotId") int slotId);
 
-**`releaseSlot`** — called internally by `appointment-service` on appointment cancellation. Sets `isBooked = false`.
+    @PutMapping("/slots/{slotId}/book")
+    void bookSlot(@PathVariable("slotId") int slotId);
 
-**`deleteSlot`** — prevents deletion of any slot that has been booked by a patient.
+    @PutMapping("/slots/{slotId}/release")
+    void releaseSlot(@PathVariable("slotId") int slotId);
+}
+```
 
-**`updateSlot`** — prevents updating a slot that is already booked. Also validates the new date is not in the past.
+| Call | When | Why |
+|---|---|---|
+| `getSlotById()` | `bookAppointment()` and `rescheduleAppointment()` | Validate slot is available and belongs to the right provider |
+| `bookSlot()` | `updateStatus("CONFIRMED")` and `rescheduleAppointment()` | Lock the slot so no other patient can book it |
+| `releaseSlot()` | `cancelAppointment()` and `rescheduleAppointment()` | Free the slot when appointment is cancelled or moved |
 
-**`deleteExpiredSlots`** — finds all slots where `date < today` AND `isBooked = false` and deletes them all in one pass.
+### 📨 RabbitMQ Messaging
 
-### Automated Scheduler
+#### Exchange & Queue Topology
 
 ```
-SlotExpiryScheduler.java
-  @Scheduled(cron = "0 0 0 * * *")
-  → Fires at 00:00:00 every day (midnight)
-  → Calls scheduleService.deleteExpiredSlots()
-  → Logs success/failure but does NOT crash on error
-  → Next midnight it tries again automatically
+Exchange: medibook.exchange  (TopicExchange, durable=true)
+│
+├── Routing Key: appointment.booked    ──► Queue: medibook.appointment.booked
+├── Routing Key: appointment.cancelled ──► Queue: medibook.appointment.cancelled
+└── Routing Key: appointment.completed ──► Queue: medibook.appointment.completed
 ```
 
-Enabled by `@EnableScheduling` on `ScheduleServiceApplication`.
+All messages serialized as **JSON** via `Jackson2JsonMessageConverter`.
+
+#### Event Triggers
+
+| Business Method | Event Published | Routing Key | Message Text |
+|---|---|---|---|
+| `updateStatus("CONFIRMED")` | `BOOKED` | `appointment.booked` | "Your appointment on {date} at {time}" |
+| `cancelAppointment()` | `CANCELLED` | `appointment.cancelled` | "Your appointment on {date} at {time} has been cancelled." |
+| `completeAppointment()` | `COMPLETED` | `appointment.completed` | "...has been marked as completed. Please check your medical records." |
+
+`notification-service` (UC7) listens on all three queues and sends in-app / email alerts to both the patient and doctor.
+
+### NoShow Detection Scheduler
+
+```java
+@Scheduled(cron = "0 0 * * * *")  // Every hour, on the hour (1:00, 2:00 ... 23:00, 0:00)
+public void detectNoShows()
+```
+
+**Detection logic:**
+1. Fetches all appointments with `status = SCHEDULED`
+2. For each appointment checks two conditions:
+   - `appointmentDate < today` → past date, never completed → **NO_SHOW**
+   - `appointmentDate == today AND endTime < now` → time passed today → **NO_SHOW**
+3. Calls `updateStatus(appointmentId, "NO_SHOW")` for each match
+4. Logs success count but **never crashes** on error — next hour it runs again
+
+### Business Logic Rules
+
+| Operation | Guard Rules |
+|---|---|
+| **Book** | Slot must not be booked; slot must not be blocked; slot's `providerId` must match request's `providerId` |
+| **Cancel** | Cannot cancel a `COMPLETED` appointment; cannot cancel already `CANCELLED` |
+| **Reschedule** | Only `SCHEDULED` appointments can be rescheduled; new slot must not be booked |
+| **Complete** | Only `SCHEDULED` appointments can be completed |
+| **Status → CONFIRMED** | Books the slot via Feign + publishes `BOOKED` RabbitMQ event |
+| **Status → CANCELLED** | Releases the slot via Feign + publishes `CANCELLED` RabbitMQ event |
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+## 🔄 Appointment Lifecycle
+
+```
+              ┌─────────────────┐
+              │  Patient Books   │
+              └────────┬────────┘
+                       │ POST /appointments/book
+                       ▼
+          ┌────────────────────────┐
+          │    PENDING_PAYMENT     │ ← Initial status on create
+          └────────────┬───────────┘
+                       │ PUT /status?status=CONFIRMED
+                       │ (payment-service confirms)
+                       ▼
+          ┌────────────────────────┐
+    ┌────►│       SCHEDULED        │◄────────────────────────────┐
+    │     └──────┬────────┬────────┘                             │
+    │            │        │                                      │
+    │  Reschedule│        │ Cancel                    Reschedule │
+    │  (new slot)│        ▼                           (old→new)  │
+    │            │  ┌──────────┐                                 │
+    │            │  │CANCELLED │                                 │
+    │            │  │  Slot    │                                 │
+    │            │  │ Released │                                 │
+    │            │  └──────────┘                                 │
+    │            │                                               │
+    │ Release ◄──┘                                   Book ──────►│
+    │ old slot                                       new slot    │
+    └────────────────────────────────────────────────────────────┘
+
+          ┌────────────────────────┐
+          │  Doctor Marks Complete  │
+          └────────────┬────────────┘
+                       ▼
+          ┌────────────────────────┐
+          │       COMPLETED        │
+          │  Unlocks Review (UC6)  │
+          │  Unlocks Records (UC8) │
+          └────────────────────────┘
+
+          ┌────────────────────────┐
+          │  NoShow Scheduler      │
+          │  (every hour)          │
+          └────────────┬────────────┘
+                       ▼
+          ┌────────────────────────┐
+          │        NO_SHOW         │
+          │  (auto-detected)       │
+          └────────────────────────┘
+```
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+## 📡 API Endpoints Summary
+
+**Base URL (via gateway):** `http://localhost:8080`
+**Base URL (direct):** `http://localhost:8084`
+
+All endpoints are prefixed with `/appointments`.
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/appointments/book` | Required | Book a new appointment |
+| `GET` | `/appointments/{appointmentId}` | Required | Get appointment by ID |
+| `GET` | `/appointments/patient/{patientId}` | Required | All appointments for a patient |
+| `GET` | `/appointments/patient/{patientId}/upcoming` | Required | Upcoming SCHEDULED appointments only |
+| `GET` | `/appointments/provider/{providerId}` | Required | All appointments for a doctor |
+| `GET` | `/appointments/provider/{providerId}/date?date=` | Required | Doctor's appointments on a specific date |
+| `GET` | `/appointments/provider/{providerId}/count` | Required | Total appointment count for a doctor |
+| `PUT` | `/appointments/{appointmentId}/cancel` | Required | Cancel an appointment |
+| `PUT` | `/appointments/{appointmentId}/reschedule` | Required | Move to a new slot |
+| `PUT` | `/appointments/{appointmentId}/complete` | Required | Doctor marks consultation as done |
+| `PUT` | `/appointments/{appointmentId}/status?status=` | Required | Manually update appointment status |
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+## 🧪 API Testing via API Gateway
+
+> All examples target `http://localhost:8080` (API Gateway).
+> Replace `<YOUR_JWT_TOKEN>` with a real token from auth-service login.
 
 ---
 
-## API Gateway
+### 🔐 Step 0 — Obtain a JWT Token
 
-- **Port:** `8080`
-- **Technology:** Spring Cloud Gateway (WebFlux / reactive)
-- **Service Discovery:** Eureka (`lb://` prefix for load-balanced routing)
+**Register a patient:**
 
-### JWT Authentication Flow
-
-```
-1. Client sends request with header: Authorization: Bearer <token>
-2. JwtAuthenticationFilter intercepts ALL requests at order -1
-3. If path is PUBLIC → forward immediately (no token needed)
-4. Otherwise → validate JWT using shared JWT_SECRET
-5. On success → extract claims, add forwarded headers:
-      X-User-Id    → userId from token claims
-      X-User-Role  → role from token claims
-      X-User-Email → subject (email) from token
-6. On failure → return 401 Unauthorized immediately
-```
-
-The downstream services (including schedule-service) trust the forwarded `X-User-*` headers because all traffic must pass through the gateway.
-
-### Public vs Protected Routes
-
-**Public (no token required):**
-
-| Method | Path                              | Description                        |
-|--------|-----------------------------------|------------------------------------|
-| POST   | `/auth/register`                  | Patient self-registration          |
-| POST   | `/auth/login`                     | Email/password login               |
-| POST   | `/auth/verify-otp`                | OTP verification after registration|
-| POST   | `/auth/resend-otp`                | Resend OTP                         |
-| POST   | `/auth/add-phone`                 | Add phone number                   |
-| POST   | `/auth/forgot-password`           | Initiate password reset            |
-| POST   | `/auth/verify-reset-otp`          | Verify OTP for password reset      |
-| POST   | `/auth/reset-password`            | Set new password                   |
-| POST   | `/auth/admin/register`            | Admin registration                 |
-| POST   | `/auth/google/complete`           | Complete Google OAuth2 profile     |
-| POST   | `/auth/refresh`                   | Refresh JWT token                  |
-| GET    | `/providers/**`                   | Browse doctor profiles             |
-| GET    | `/slots/available/**`             | View available slots (patients)    |
-| ANY    | `/oauth2/**`                      | Google OAuth2 redirect             |
-| ANY    | `/login/oauth2/**`                | OAuth2 callback                    |
-
-**Protected (Bearer token required):**
-
-| Path Prefix         | Typical Callers          |
-|---------------------|--------------------------|
-| `/slots/**`         | Doctors, Admins          |
-| `/appointments/**`  | Patients, Doctors        |
-| `/payments/**`      | Patients                 |
-| `/reviews/**`       | Patients                 |
-| `/records/**`       | Doctors, Admins          |
-| `/notifications/**` | All authenticated users  |
-
-### Forwarded Headers
-
-The gateway strips no headers and adds these after JWT validation:
-
-| Header         | Value                       |
-|----------------|-----------------------------|
-| `X-User-Id`    | Numeric user ID from claims |
-| `X-User-Role`  | `PATIENT` / `DOCTOR` / `ADMIN` |
-| `X-User-Email` | Email address (JWT subject) |
-
----
-
-## All Services Reference
-
-### Auth Service (port 8081)
-
-Handles user registration, login, OTP verification, JWT issuance, password reset, and Google OAuth2.
-
-- Database: `auth_db`
-- Key entities: `User`, `OtpToken`, `PasswordResetToken`
-- JWT secret must match the secret used by `api-gateway` and all downstream services
-
-### Provider Service (port 8082)
-
-Manages doctor/provider profiles. A user with role `DOCTOR` must create a provider profile before adding availability slots.
-
-- Database: `provider_db`
-- Key entity: `Provider`
-- Calls `auth-service` via Feign (`UserClient`) to fetch user details
-
-### Schedule Service (port 8083) — **This Service**
-
-See detailed sections above.
-
-### Eureka Server (port 8761)
-
-Netflix Eureka service registry. All microservices register here on startup. The API Gateway uses Eureka for load-balanced routing (`lb://service-name`).
-
-- Basic Auth: `admin` / `medibook123`
-- Dashboard: `http://localhost:8761`
-
----
-
-## API Endpoints
-
-Base URL (via gateway): `http://localhost:8080`  
-Base URL (direct): `http://localhost:8083`
-
-All schedule endpoints are prefixed with `/slots`.
-
-| Method | Path                          | Auth     | Description                                    |
-|--------|-------------------------------|----------|------------------------------------------------|
-| POST   | `/slots/add`                  | Required | Add a single availability slot                 |
-| POST   | `/slots/bulk`                 | Required | Add multiple slots at once                     |
-| POST   | `/slots/recurring`            | Required | Generate recurring slots (DAILY or WEEKLY)     |
-| GET    | `/slots/provider/{providerId}`| Required | Get all slots for a provider (including booked/blocked) |
-| GET    | `/slots/available/{providerId}?date=` | Public | Get available (unbooked, unblocked) slots for a date |
-| GET    | `/slots/{slotId}`             | Required | Get a single slot by ID                        |
-| PUT    | `/slots/{slotId}`             | Required | Update a slot's date/time/duration             |
-| PUT    | `/slots/{slotId}/block`       | Required | Block a slot (invisible to patients)           |
-| PUT    | `/slots/{slotId}/unblock`     | Required | Unblock a previously blocked slot              |
-| DELETE | `/slots/{slotId}`             | Required | Delete a slot (only if not booked)             |
-| PUT    | `/slots/{slotId}/book`        | Internal | Mark slot as booked (called by appointment-service) |
-| PUT    | `/slots/{slotId}/release`     | Internal | Release a booked slot (called by appointment-service) |
-
----
-
-## API Testing via API Gateway
-
-All examples below use the API Gateway at `http://localhost:8080`. Replace token and IDs with your actual values.
-
-### Prerequisites — Get a JWT Token
-
-First register and login via the auth service to obtain a Bearer token.
-
-**Register a user:**
 ```bash
 curl -X POST http://localhost:8080/auth/register \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Dr. Arjun Sharma",
-    "email": "arjun.sharma@medibook.com",
-    "password": "Doctor@123",
-    "phone": "9876543210",
-    "role": "DOCTOR"
+    "name": "Priya Patel",
+    "email": "priya.patel@medibook.com",
+    "password": "Patient@123",
+    "phone": "9876543211",
+    "role": "PATIENT"
   }'
 ```
 
-**Login to get the token:**
+**Login:**
+
 ```bash
 curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "arjun.sharma@medibook.com",
-    "password": "Doctor@123"
+    "email": "priya.patel@medibook.com",
+    "password": "Patient@123"
   }'
 ```
 
 **Sample response:**
+
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhcmp1bi5zaGFybWFAbWVkaWJvb2suY29tIiwicm9sZSI6IkRPQ1RPUiIsInVzZXJJZCI6MX0...",
+  "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJwcml5YS5wYXRlbEBtZWRpYm9vay5jb20iLCJyb2xlIjoiUEFUSUVOVCIsInVzZXJJZCI6MX0...",
   "type": "Bearer",
   "userId": 1,
-  "email": "arjun.sharma@medibook.com",
-  "role": "DOCTOR"
+  "email": "priya.patel@medibook.com",
+  "role": "PATIENT"
 }
 ```
 
-Use the returned `token` value as `Bearer <token>` in all protected requests below.
+Use `token` as `Bearer <token>` in the `Authorization` header for all protected requests.
 
 ---
 
-### 1. Add a Single Slot
+### 1️⃣ Book an Appointment (IN_PERSON)
 
-**POST** `/slots/add`
+**`POST /appointments/book`**
 
-Creates one availability slot for a provider on a specific date and time.
+Patient books a slot. The service fetches slot details from `schedule-service` via Feign, validates availability, creates the appointment with status `PENDING_PAYMENT`, and returns booking confirmation.
 
 ```bash
-curl -X POST http://localhost:8080/slots/add \
+curl -X POST http://localhost:8080/appointments/book \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
   -d '{
+    "patientId": 1,
     "providerId": 1,
-    "date": "2026-05-15",
+    "patientEmail": "priya.patel@medibook.com",
+    "slotId": 5,
+    "serviceType": "General Consultation",
+    "appointmentDate": "2026-05-15",
     "startTime": "10:00",
     "endTime": "10:30",
-    "durationMinutes": 30,
-    "recurrence": "NONE"
+    "modeOfConsultation": "IN_PERSON",
+    "notes": "Persistent headaches for the past week."
   }'
 ```
 
 **Expected Response — 201 Created:**
+
 ```json
 {
-  "slotId": 1,
-  "providerId": 1,
-  "date": "2026-05-15",
+  "message": "Appointment booked successfully.",
+  "appointmentId": 1,
+  "status": "PENDING_PAYMENT",
+  "appointmentDate": "2026-05-15",
   "startTime": "10:00:00",
-  "endTime": "10:30:00",
-  "durationMinutes": 30,
-  "booked": false,
-  "blocked": false,
-  "recurrence": "NONE",
-  "createdAt": "2026-04-22T08:30:00",
-  "version": 0
+  "modeOfConsultation": "IN_PERSON"
 }
 ```
 
 ---
 
-### 2. Add Bulk Slots
+### 2️⃣ Book a Teleconsultation Appointment
 
-**POST** `/slots/bulk`
-
-Creates multiple slots in a single request. Useful when a doctor wants to add several non-recurring slots at once.
+**`POST /appointments/book`**
 
 ```bash
-curl -X POST http://localhost:8080/slots/bulk \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
-  -d '[
-    {
-      "providerId": 1,
-      "date": "2026-05-15",
-      "startTime": "09:00",
-      "endTime": "09:30",
-      "durationMinutes": 30,
-      "recurrence": "NONE"
-    },
-    {
-      "providerId": 1,
-      "date": "2026-05-15",
-      "startTime": "09:30",
-      "endTime": "10:00",
-      "durationMinutes": 30,
-      "recurrence": "NONE"
-    },
-    {
-      "providerId": 1,
-      "date": "2026-05-16",
-      "startTime": "11:00",
-      "endTime": "11:30",
-      "durationMinutes": 30,
-      "recurrence": "NONE"
-    }
-  ]'
-```
-
-**Expected Response — 201 Created:**
-```json
-[
-  {
-    "slotId": 2,
-    "providerId": 1,
-    "date": "2026-05-15",
-    "startTime": "09:00:00",
-    "endTime": "09:30:00",
-    "durationMinutes": 30,
-    "booked": false,
-    "blocked": false,
-    "recurrence": "NONE",
-    "createdAt": "2026-04-22T08:31:00",
-    "version": 0
-  },
-  {
-    "slotId": 3,
-    "providerId": 1,
-    "date": "2026-05-15",
-    "startTime": "09:30:00",
-    "endTime": "10:00:00",
-    "durationMinutes": 30,
-    "booked": false,
-    "blocked": false,
-    "recurrence": "NONE",
-    "createdAt": "2026-04-22T08:31:00",
-    "version": 0
-  },
-  {
-    "slotId": 4,
-    "providerId": 1,
-    "date": "2026-05-16",
-    "startTime": "11:00:00",
-    "endTime": "11:30:00",
-    "durationMinutes": 30,
-    "booked": false,
-    "blocked": false,
-    "recurrence": "NONE",
-    "createdAt": "2026-04-22T08:31:00",
-    "version": 0
-  }
-]
-```
-
----
-
-### 3. Generate Recurring Slots (Daily)
-
-**POST** `/slots/recurring`
-
-Doctor wants a 10:00–10:30 slot every day from May 1 to May 7. The system creates 7 individual slots automatically.
-
-```bash
-curl -X POST http://localhost:8080/slots/recurring \
+curl -X POST http://localhost:8080/appointments/book \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
   -d '{
+    "patientId": 2,
     "providerId": 1,
-    "date": "2026-05-01",
-    "startTime": "10:00",
-    "endTime": "10:30",
-    "durationMinutes": 30,
-    "recurrence": "DAILY",
-    "recurrenceEndDate": "2026-05-07"
+    "patientEmail": "rahul.mehta@medibook.com",
+    "slotId": 6,
+    "serviceType": "Follow-Up Consultation",
+    "appointmentDate": "2026-05-16",
+    "startTime": "11:00",
+    "endTime": "11:30",
+    "modeOfConsultation": "TELECONSULTATION",
+    "notes": "Follow-up for blood pressure medication review."
   }'
 ```
 
 **Expected Response — 201 Created:**
+
 ```json
-[
-  { "slotId": 5, "providerId": 1, "date": "2026-05-01", "startTime": "10:00:00", "endTime": "10:30:00", "durationMinutes": 30, "booked": false, "blocked": false, "recurrence": "DAILY", "createdAt": "2026-04-22T08:32:00", "version": 0 },
-  { "slotId": 6, "providerId": 1, "date": "2026-05-02", "startTime": "10:00:00", "endTime": "10:30:00", "durationMinutes": 30, "booked": false, "blocked": false, "recurrence": "DAILY", "createdAt": "2026-04-22T08:32:00", "version": 0 },
-  { "slotId": 7, "providerId": 1, "date": "2026-05-03", "startTime": "10:00:00", "endTime": "10:30:00", "durationMinutes": 30, "booked": false, "blocked": false, "recurrence": "DAILY", "createdAt": "2026-04-22T08:32:00", "version": 0 },
-  { "slotId": 8, "providerId": 1, "date": "2026-05-04", "startTime": "10:00:00", "endTime": "10:30:00", "durationMinutes": 30, "booked": false, "blocked": false, "recurrence": "DAILY", "createdAt": "2026-04-22T08:32:00", "version": 0 },
-  { "slotId": 9, "providerId": 1, "date": "2026-05-05", "startTime": "10:00:00", "endTime": "10:30:00", "durationMinutes": 30, "booked": false, "blocked": false, "recurrence": "DAILY", "createdAt": "2026-04-22T08:32:00", "version": 0 },
-  { "slotId": 10, "providerId": 1, "date": "2026-05-06", "startTime": "10:00:00", "endTime": "10:30:00", "durationMinutes": 30, "booked": false, "blocked": false, "recurrence": "DAILY", "createdAt": "2026-04-22T08:32:00", "version": 0 },
-  { "slotId": 11, "providerId": 1, "date": "2026-05-07", "startTime": "10:00:00", "endTime": "10:30:00", "durationMinutes": 30, "booked": false, "blocked": false, "recurrence": "DAILY", "createdAt": "2026-04-22T08:32:00", "version": 0 }
-]
+{
+  "message": "Appointment booked successfully.",
+  "appointmentId": 2,
+  "status": "PENDING_PAYMENT",
+  "appointmentDate": "2026-05-16",
+  "startTime": "11:00:00",
+  "modeOfConsultation": "TELECONSULTATION"
+}
 ```
 
 ---
 
-### 4. Generate Recurring Slots (Weekly)
+### 3️⃣ Confirm Appointment After Payment
 
-**POST** `/slots/recurring`
+**`PUT /appointments/{appointmentId}/status?status=CONFIRMED`**
 
-Doctor wants every Monday's 14:00–14:30 slot for the entire month of May (Mondays: May 5, 12, 19, 26).
-
-```bash
-curl -X POST http://localhost:8080/slots/recurring \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
-  -d '{
-    "providerId": 1,
-    "date": "2026-05-05",
-    "startTime": "14:00",
-    "endTime": "14:30",
-    "durationMinutes": 30,
-    "recurrence": "WEEKLY",
-    "recurrenceEndDate": "2026-05-31"
-  }'
-```
-
-**Expected Response — 201 Created:**
-```json
-[
-  { "slotId": 12, "providerId": 1, "date": "2026-05-05", "startTime": "14:00:00", "endTime": "14:30:00", "durationMinutes": 30, "booked": false, "blocked": false, "recurrence": "WEEKLY", "version": 0 },
-  { "slotId": 13, "providerId": 1, "date": "2026-05-12", "startTime": "14:00:00", "endTime": "14:30:00", "durationMinutes": 30, "booked": false, "blocked": false, "recurrence": "WEEKLY", "version": 0 },
-  { "slotId": 14, "providerId": 1, "date": "2026-05-19", "startTime": "14:00:00", "endTime": "14:30:00", "durationMinutes": 30, "booked": false, "blocked": false, "recurrence": "WEEKLY", "version": 0 },
-  { "slotId": 15, "providerId": 1, "date": "2026-05-26", "startTime": "14:00:00", "endTime": "14:30:00", "durationMinutes": 30, "booked": false, "blocked": false, "recurrence": "WEEKLY", "version": 0 }
-]
-```
-
----
-
-### 5. Get All Slots for a Provider
-
-**GET** `/slots/provider/{providerId}`
-
-Returns every slot for the provider — including booked, blocked, and available. Intended for doctor/admin views.
+Called by `payment-service` after payment is processed. Transitions the appointment to `CONFIRMED` / `SCHEDULED`, books the slot via Feign (`bookSlot()`), and fires a `BOOKED` event on RabbitMQ.
 
 ```bash
-curl -X GET http://localhost:8080/slots/provider/1 \
+curl -X PUT "http://localhost:8080/appointments/1/status?status=CONFIRMED" \
   -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
 ```
 
 **Expected Response — 200 OK:**
+
+```json
+{
+  "message": "Appointment status updated to: CONFIRMED"
+}
+```
+
+> **Side effects:** `schedule-service` sets `isBooked = true` on the slot. `notification-service` receives `BOOKED` event on `medibook.appointment.booked` queue.
+
+---
+
+### 4️⃣ Get Appointment by ID
+
+**`GET /appointments/{appointmentId}`**
+
+Fetch complete details of a specific appointment.
+
+```bash
+curl -X GET http://localhost:8080/appointments/1 \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+
+**Expected Response — 200 OK:**
+
+```json
+{
+  "appointmentId": 1,
+  "patientId": 1,
+  "providerId": 1,
+  "patientEmail": "priya.patel@medibook.com",
+  "slotId": 5,
+  "serviceType": "General Consultation",
+  "appointmentDate": "2026-05-15",
+  "startTime": "10:00:00",
+  "endTime": "10:30:00",
+  "status": "SCHEDULED",
+  "notes": "Persistent headaches for the past week.",
+  "modeOfConsultation": "IN_PERSON",
+  "createdAt": "2026-04-22T09:00:00",
+  "updatedAt": "2026-04-22T09:05:00"
+}
+```
+
+---
+
+### 5️⃣ Get All Appointments for a Patient
+
+**`GET /appointments/patient/{patientId}`**
+
+Returns the patient's complete appointment history across all statuses.
+
+```bash
+curl -X GET http://localhost:8080/appointments/patient/1 \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+
+**Expected Response — 200 OK:**
+
 ```json
 [
   {
-    "slotId": 1,
+    "appointmentId": 1,
+    "patientId": 1,
     "providerId": 1,
-    "date": "2026-05-15",
+    "slotId": 5,
+    "serviceType": "General Consultation",
+    "appointmentDate": "2026-05-15",
     "startTime": "10:00:00",
     "endTime": "10:30:00",
-    "durationMinutes": 30,
-    "booked": false,
-    "blocked": false,
-    "recurrence": "NONE",
-    "createdAt": "2026-04-22T08:30:00",
-    "version": 0
-  }
-]
-```
-
----
-
-### 6. Get Available Slots for a Provider on a Date
-
-**GET** `/slots/available/{providerId}?date=YYYY-MM-DD`
-
-Returns only slots that are **not booked** and **not blocked**. This is the public-facing patient endpoint — no token required.
-
-```bash
-curl -X GET "http://localhost:8080/slots/available/1?date=2026-05-15"
-```
-
-**Expected Response — 200 OK:**
-```json
-[
-  {
-    "slotId": 2,
-    "providerId": 1,
-    "date": "2026-05-15",
-    "startTime": "09:00:00",
-    "endTime": "09:30:00",
-    "durationMinutes": 30,
-    "booked": false,
-    "blocked": false,
-    "recurrence": "NONE",
-    "createdAt": "2026-04-22T08:31:00",
-    "version": 0
+    "status": "SCHEDULED",
+    "modeOfConsultation": "IN_PERSON",
+    "createdAt": "2026-04-22T09:00:00"
   },
   {
-    "slotId": 3,
-    "providerId": 1,
-    "date": "2026-05-15",
-    "startTime": "09:30:00",
-    "endTime": "10:00:00",
-    "durationMinutes": 30,
-    "booked": false,
-    "blocked": false,
-    "recurrence": "NONE",
-    "createdAt": "2026-04-22T08:31:00",
-    "version": 0
+    "appointmentId": 3,
+    "patientId": 1,
+    "providerId": 2,
+    "slotId": 9,
+    "serviceType": "Dental Checkup",
+    "appointmentDate": "2026-04-10",
+    "startTime": "14:00:00",
+    "endTime": "14:30:00",
+    "status": "COMPLETED",
+    "modeOfConsultation": "IN_PERSON",
+    "createdAt": "2026-04-05T10:00:00"
   }
 ]
 ```
 
-**Note:** If no slots are available for the given date, an empty array `[]` is returned.
-
 ---
 
-### 7. Get a Slot by ID
+### 6️⃣ Get Upcoming Appointments for a Patient
 
-**GET** `/slots/{slotId}`
+**`GET /appointments/patient/{patientId}/upcoming`**
 
-Fetches the full details of a specific slot by its ID.
+Returns only `SCHEDULED` appointments on or after today. Used on the patient dashboard.
 
 ```bash
-curl -X GET http://localhost:8080/slots/1 \
+curl -X GET http://localhost:8080/appointments/patient/1/upcoming \
   -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
 ```
 
 **Expected Response — 200 OK:**
+
+```json
+[
+  {
+    "appointmentId": 1,
+    "patientId": 1,
+    "providerId": 1,
+    "slotId": 5,
+    "serviceType": "General Consultation",
+    "appointmentDate": "2026-05-15",
+    "startTime": "10:00:00",
+    "endTime": "10:30:00",
+    "status": "SCHEDULED",
+    "modeOfConsultation": "IN_PERSON",
+    "notes": "Persistent headaches for the past week.",
+    "createdAt": "2026-04-22T09:00:00"
+  }
+]
+```
+
+---
+
+### 7️⃣ Get All Appointments for a Doctor
+
+**`GET /appointments/provider/{providerId}`**
+
+Doctor views all their bookings — entire history across all statuses.
+
+```bash
+curl -X GET http://localhost:8080/appointments/provider/1 \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+
+**Expected Response — 200 OK:**
+
+```json
+[
+  {
+    "appointmentId": 1,
+    "patientId": 1,
+    "providerId": 1,
+    "slotId": 5,
+    "serviceType": "General Consultation",
+    "appointmentDate": "2026-05-15",
+    "startTime": "10:00:00",
+    "endTime": "10:30:00",
+    "status": "SCHEDULED",
+    "modeOfConsultation": "IN_PERSON"
+  },
+  {
+    "appointmentId": 2,
+    "patientId": 2,
+    "providerId": 1,
+    "slotId": 6,
+    "serviceType": "Follow-Up Consultation",
+    "appointmentDate": "2026-05-16",
+    "startTime": "11:00:00",
+    "endTime": "11:30:00",
+    "status": "PENDING_PAYMENT",
+    "modeOfConsultation": "TELECONSULTATION"
+  }
+]
+```
+
+---
+
+### 8️⃣ Get Doctor's Appointments on a Specific Date
+
+**`GET /appointments/provider/{providerId}/date?date=YYYY-MM-DD`**
+
+Doctor views their daily schedule. Perfect for the clinic dashboard's "today's appointments."
+
+```bash
+curl -X GET "http://localhost:8080/appointments/provider/1/date?date=2026-05-15" \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+
+**Expected Response — 200 OK:**
+
+```json
+[
+  {
+    "appointmentId": 1,
+    "patientId": 1,
+    "providerId": 1,
+    "slotId": 5,
+    "serviceType": "General Consultation",
+    "appointmentDate": "2026-05-15",
+    "startTime": "10:00:00",
+    "endTime": "10:30:00",
+    "status": "SCHEDULED",
+    "modeOfConsultation": "IN_PERSON",
+    "notes": "Persistent headaches for the past week."
+  }
+]
+```
+
+---
+
+### 9️⃣ Get Total Appointment Count for a Doctor
+
+**`GET /appointments/provider/{providerId}/count`**
+
+Returns total appointment count. Used in dashboards and admin analytics.
+
+```bash
+curl -X GET http://localhost:8080/appointments/provider/1/count \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+
+**Expected Response — 200 OK:**
+
 ```json
 {
-  "slotId": 1,
   "providerId": 1,
-  "date": "2026-05-15",
-  "startTime": "10:00:00",
-  "endTime": "10:30:00",
-  "durationMinutes": 30,
-  "booked": false,
-  "blocked": false,
-  "recurrence": "NONE",
-  "createdAt": "2026-04-22T08:30:00",
-  "version": 0
+  "totalAppointments": 47
 }
 ```
 
 ---
 
-### 8. Update a Slot
+### 🔟 Cancel an Appointment
 
-**PUT** `/slots/{slotId}`
+**`PUT /appointments/{appointmentId}/cancel`**
 
-Updates the date, time, or duration of an existing slot. Cannot update a slot that has already been booked by a patient, and the new date cannot be in the past.
+Cancels a scheduled appointment. Releases the slot in `schedule-service` via Feign and publishes a `CANCELLED` event to RabbitMQ. Cannot cancel `COMPLETED` or already `CANCELLED` appointments.
 
 ```bash
-curl -X PUT http://localhost:8080/slots/1 \
+curl -X PUT http://localhost:8080/appointments/1/cancel \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+
+**Expected Response — 200 OK:**
+
+```json
+{
+  "message": "Appointment cancelled successfully. Slot has been released for other patients."
+}
+```
+
+> **Side effects:** `schedule-service` sets `isBooked = false` on the slot. `notification-service` receives `CANCELLED` event on `medibook.appointment.cancelled` queue.
+
+---
+
+### 1️⃣1️⃣ Reschedule an Appointment
+
+**`PUT /appointments/{appointmentId}/reschedule`**
+
+Moves the appointment to a different available slot with the same doctor. Old slot is released, new slot is booked. Only `SCHEDULED` appointments can be rescheduled.
+
+```bash
+curl -X PUT http://localhost:8080/appointments/1/reschedule \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
   -d '{
-    "providerId": 1,
-    "date": "2026-05-20",
-    "startTime": "11:00",
-    "endTime": "11:45",
-    "durationMinutes": 45,
-    "recurrence": "NONE"
+    "newSlotId": "8",
+    "newDate": "2026-05-20",
+    "newStartTime": "14:00",
+    "newEndTime": "14:30"
   }'
 ```
 
 **Expected Response — 200 OK:**
+
 ```json
 {
-  "slotId": 1,
+  "appointmentId": 1,
+  "patientId": 1,
   "providerId": 1,
-  "date": "2026-05-20",
-  "startTime": "11:00:00",
-  "endTime": "11:45:00",
-  "durationMinutes": 45,
-  "booked": false,
-  "blocked": false,
-  "recurrence": "NONE",
-  "createdAt": "2026-04-22T08:30:00",
-  "version": 1
+  "slotId": 8,
+  "serviceType": "General Consultation",
+  "appointmentDate": "2026-05-20",
+  "startTime": "14:00:00",
+  "endTime": "14:30:00",
+  "status": "SCHEDULED",
+  "modeOfConsultation": "IN_PERSON",
+  "notes": "Persistent headaches for the past week.",
+  "createdAt": "2026-04-22T09:00:00",
+  "updatedAt": "2026-04-22T10:30:00"
 }
 ```
 
 ---
 
-### 9. Block a Slot
+### 1️⃣2️⃣ Mark Appointment as Completed
 
-**PUT** `/slots/{slotId}/block`
+**`PUT /appointments/{appointmentId}/complete`**
 
-Doctor blocks a slot (e.g., due to a personal commitment). Blocked slots are invisible to patients. Cannot block a slot that is already booked.
+Doctor confirms the consultation is done. Transitions status to `COMPLETED` and publishes a `COMPLETED` RabbitMQ event. Only `SCHEDULED` appointments can be completed.
+
+After completion:
+- Patient unlocks ability to submit a review (UC6)
+- Doctor unlocks ability to create a medical record (UC8)
 
 ```bash
-curl -X PUT http://localhost:8080/slots/1/block \
+curl -X PUT http://localhost:8080/appointments/1/complete \
   -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
 ```
 
 **Expected Response — 200 OK:**
+
 ```json
 {
-  "message": "Slot blocked successfully. It is now invisible to patients."
+  "message": "Appointment marked as completed. Patient can now submit a review."
 }
 ```
 
 ---
 
-### 10. Unblock a Slot
+### 1️⃣3️⃣ Manually Mark as No-Show
 
-**PUT** `/slots/{slotId}/unblock`
+**`PUT /appointments/{appointmentId}/status?status=NO_SHOW`**
 
-Doctor unblocks a previously blocked slot. The slot immediately becomes visible and bookable by patients again.
+Admin or scheduler marks an appointment as no-show. The `NoShowDetectionScheduler` does this automatically every hour, but admins can trigger it manually.
 
 ```bash
-curl -X PUT http://localhost:8080/slots/1/unblock \
+curl -X PUT "http://localhost:8080/appointments/2/status?status=NO_SHOW" \
   -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
 ```
 
 **Expected Response — 200 OK:**
+
 ```json
 {
-  "message": "Slot unblocked successfully. It is now visible and bookable by patients."
+  "message": "Appointment status updated to: NO_SHOW"
 }
 ```
 
 ---
 
-### 11. Delete a Slot
+### 1️⃣4️⃣ Full End-to-End Patient Journey
 
-**DELETE** `/slots/{slotId}`
-
-Permanently removes a slot from the calendar. Cannot delete a slot that has been booked by a patient — the appointment must be cancelled first.
+Complete sequence simulating a real patient booking flow:
 
 ```bash
-curl -X DELETE http://localhost:8080/slots/1 \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+# 1. Browse available slots (public — no token needed)
+curl -X GET "http://localhost:8080/slots/available/1?date=2026-05-15"
+
+# 2. Book the appointment
+curl -X POST http://localhost:8080/appointments/book \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>" \
+  -d '{"patientId":1,"providerId":1,"patientEmail":"priya@test.com","slotId":5,"serviceType":"General Consultation","appointmentDate":"2026-05-15","startTime":"10:00","endTime":"10:30","modeOfConsultation":"IN_PERSON"}'
+
+# 3. Confirm after payment (payment-service webhook simulation)
+curl -X PUT "http://localhost:8080/appointments/1/status?status=CONFIRMED" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+
+# 4. Verify the slot is now booked (should not appear as available)
+curl -X GET "http://localhost:8080/slots/available/1?date=2026-05-15"
+
+# 5. View upcoming appointments on patient dashboard
+curl -X GET http://localhost:8080/appointments/patient/1/upcoming \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+
+# 6. Doctor views their schedule for that day
+curl -X GET "http://localhost:8080/appointments/provider/1/date?date=2026-05-15" \
+  -H "Authorization: Bearer <DOCTOR_TOKEN>"
+
+# 7. Doctor marks appointment as completed
+curl -X PUT http://localhost:8080/appointments/1/complete \
+  -H "Authorization: Bearer <DOCTOR_TOKEN>"
+
+# 8. Verify final status
+curl -X GET http://localhost:8080/appointments/1 \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
 ```
 
-**Expected Response — 200 OK:**
-```json
-{
-  "message": "Slot deleted successfully."
-}
-```
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
----
+## ❌ Error Responses
 
-### 12. Book a Slot (Internal)
+All exceptions are caught by `GlobalExceptionHandler` (`@ControllerAdvice`) and return a consistent JSON structure:
 
-**PUT** `/slots/{slotId}/book`
-
-> ⚠️ **Internal endpoint.** Called exclusively by `appointment-service` via Feign client when a patient creates an appointment. Not intended for direct external use.
-
-```bash
-curl -X PUT http://localhost:8080/slots/2/book \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
-```
-
-**Expected Response — 200 OK:**
-```json
-{
-  "message": "Slot marked as booked."
-}
-```
-
----
-
-### 13. Release a Slot (Internal)
-
-**PUT** `/slots/{slotId}/release`
-
-> ⚠️ **Internal endpoint.** Called exclusively by `appointment-service` via Feign client when a patient cancels an appointment. Restores the slot to available status.
-
-```bash
-curl -X PUT http://localhost:8080/slots/2/release \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
-```
-
-**Expected Response — 200 OK:**
-```json
-{
-  "message": "Slot released."
-}
-```
-
----
-
-## Error Responses
-
-All errors are handled by `GlobalExceptionHandler` and returned as a consistent JSON structure.
-
-**Error Response Shape:**
 ```json
 {
   "status": 400,
   "error": "Bad Request",
-  "message": "Cannot create slot in the past. Please select a future date.",
-  "timestamp": "2026-04-22T08:35:00"
+  "message": "This slot is already booked. Please choose another slot.",
+  "timestamp": "2026-04-22T09:15:00"
 }
 ```
 
-| HTTP Status | Scenario                                                        |
-|-------------|------------------------------------------------------------------|
-| `400`       | Validation failure, past date, already booked/blocked, empty list |
-| `401`       | Missing or invalid JWT token (rejected by gateway)              |
-| `403`       | Forbidden — insufficient role                                   |
-| `404`       | Slot not found for given `slotId`                               |
-| `409`       | Duplicate resource conflict                                     |
-| `500`       | Unexpected server error                                         |
+| HTTP Status | Scenario |
+|---|---|
+| `400` | Slot already booked / blocked, provider mismatch, cancelling completed, rescheduling non-scheduled |
+| `401` | Missing or invalid JWT token (rejected at gateway) |
+| `403` | Insufficient role / forbidden access |
+| `404` | Appointment not found for given ID |
+| `409` | Duplicate resource conflict |
+| `500` | Unexpected server error |
 
 **Common error messages:**
 
-| Scenario                             | Message                                                                 |
-|--------------------------------------|-------------------------------------------------------------------------|
-| Past date on create                  | `"Cannot create slot in the past. Please select a future date."`        |
-| Already booked — book attempt        | `"This slot is already booked. Please choose another slot."`            |
-| Blocked — book attempt               | `"This slot is blocked by the doctor and cannot be booked."`            |
-| Block already-booked slot            | `"Cannot block a slot that is already booked by a patient."`            |
-| Already blocked                      | `"Slot is already blocked."`                                            |
-| Unblock non-blocked slot             | `"Slot is not blocked."`                                                |
-| Update a booked slot                 | `"Cannot update a slot that is already booked by a patient."`           |
-| Delete a booked slot                 | `"Cannot delete a slot that is already booked by a patient."`           |
-| Missing recurrenceEndDate            | `"Recurrence end date is required for recurring slots."`                |
-| End date before start date           | `"Recurrence end date must be after start date."`                       |
-| Invalid recurrence pattern           | `"Recurrence pattern must be DAILY or WEEKLY."`                         |
-| Slot not found                       | `"Slot not found with id: <slotId>"`                                    |
+| Scenario | Error Message |
+|---|---|
+| Slot already booked | `"This slot is already booked. Please choose another slot."` |
+| Slot blocked by doctor | `"This slot is blocked by the doctor."` |
+| Provider mismatch | `"Slot does not belong to the selected provider."` |
+| Cancel completed appointment | `"Cannot cancel a completed appointment."` |
+| Cancel already cancelled | `"Appointment is already cancelled."` |
+| Reschedule non-SCHEDULED | `"Only SCHEDULED appointments can be rescheduled."` |
+| New slot already booked | `"New slot is already booked."` |
+| Complete non-SCHEDULED | `"Only SCHEDULED appointments can be marked complete."` |
+| Appointment not found | `"Appointment not found with id: <appointmentId>"` |
 
----
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
-## Environment Variables
+## ⚙️ Environment Variables
 
-These must be set before starting the service. Configure them in your shell, `.env` file, or CI/CD pipeline.
+| Variable | Required | Default (dev) | Description |
+|---|---|---|---|
+| `JWT_SECRET` | **Yes** | — | Must match `api-gateway` and `auth-service`. Strong Base64 (min 256-bit) |
+| `DB_USERNAME` | No | `medibook_user` | MySQL username |
+| `DB_PASSWORD` | No | `medibook_pass` | MySQL password |
+| `EUREKA_DEFAULT_ZONE` | No | `http://admin:medibook123@localhost:8761/eureka/` | Eureka registry URL |
+| RabbitMQ host | No | `localhost` | `spring.rabbitmq.host` in `application.yml` |
+| RabbitMQ port | No | `5672` | `spring.rabbitmq.port` in `application.yml` |
+| RabbitMQ credentials | No | `guest / guest` | Default for local dev |
 
-| Variable              | Required | Default (dev)                                                            | Description                                  |
-|-----------------------|----------|--------------------------------------------------------------------------|----------------------------------------------|
-| `JWT_SECRET`          | **Yes**  | —                                                                        | Must match the secret used in `api-gateway` and `auth-service`. Use a strong Base64 secret (min 256-bit). |
-| `DB_URL`              | No       | `jdbc:mysql://localhost:3306/schedule_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true` | MySQL JDBC URL |
-| `DB_USERNAME`         | No       | `medibook_user`                                                          | MySQL username                               |
-| `DB_PASSWORD`         | No       | `medibook_pass`                                                          | MySQL password                               |
-| `EUREKA_DEFAULT_ZONE` | No       | `http://admin:medibook123@localhost:8761/eureka/`                        | Eureka server URL                            |
+**Export in bash:**
 
-**Example — exporting in bash:**
 ```bash
 export JWT_SECRET="myVeryStrongBase64SecretKeyForMediBookThatIs256BitsLong"
-export DB_URL="jdbc:mysql://localhost:3306/schedule_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
 export DB_USERNAME="medibook_user"
 export DB_PASSWORD="medibook_pass"
 ```
 
----
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
-## Running the Services
+## 🚀 Running the Services
+
+### Prerequisites
+
+- Java 17+
+- Maven 3.8+
+- MySQL 8 running locally
+- RabbitMQ running locally
+- All upstream services running (Eureka, Gateway, Auth, Provider, Schedule)
+
+### Start RabbitMQ (Docker)
+
+```bash
+docker run -d \
+  --name rabbitmq \
+  -p 5672:5672 \
+  -p 15672:15672 \
+  rabbitmq:3-management
+```
+
+RabbitMQ Management UI: `http://localhost:15672` (guest / guest)
 
 ### Startup Order
 
-Services must be started in this order to ensure proper registration and routing:
+```bash
+# 1. Eureka Server — MUST be first
+cd eureka-server && mvn spring-boot:run
 
-```
-1. eureka-server      (port 8761) — service registry must be up first
-2. api-gateway        (port 8080) — routes depend on Eureka
-3. auth-service       (port 8081)
-4. provider-service   (port 8082)
-5. schedule-service   (port 8083)   ← this service
+# 2. API Gateway — MUST be second
+cd api-gateway && JWT_SECRET=<secret> mvn spring-boot:run
+
+# 3. Auth Service
+cd auth-service && JWT_SECRET=<secret> mvn spring-boot:run
+
+# 4. Provider Service
+cd provider-service && JWT_SECRET=<secret> mvn spring-boot:run
+
+# 5. Schedule Service — appointment-service calls this via Feign
+cd schedule-service && JWT_SECRET=<secret> mvn spring-boot:run
+
+# 6. Appointment Service — THIS SERVICE
+cd appointment-service && JWT_SECRET=<secret> mvn spring-boot:run
 ```
 
-### Build and Run (Maven)
+### Build and Run as JAR
 
 ```bash
-# From the root of the project
-cd MediBook-Microservices-feature-UC3-schedule-service
-
-# Build all modules
-mvn clean install -DskipTests
-
-# Start Eureka Server
-cd eureka-server
-mvn spring-boot:run
-
-# Start API Gateway (new terminal)
-cd ../api-gateway
-mvn spring-boot:run
-
-# Start Auth Service (new terminal)
-cd ../auth-service
-JWT_SECRET=<your-secret> mvn spring-boot:run
-
-# Start Provider Service (new terminal)
-cd ../provider-service
-JWT_SECRET=<your-secret> mvn spring-boot:run
-
-# Start Schedule Service (new terminal)
-cd ../schedule-service
-JWT_SECRET=<your-secret> mvn spring-boot:run
-```
-
-### Build and Run (individual JAR)
-
-```bash
-cd schedule-service
+cd appointment-service
 mvn clean package -DskipTests
 
-java -jar target/schedule-service-1.0.0.jar \
-  --medibook.jwt.secret=<JWT_SECRET> \
-  --spring.datasource.url=jdbc:mysql://localhost:3306/schedule_db \
+java -jar target/appointment-service-1.0.0.jar \
+  --jwt.secret=<JWT_SECRET> \
   --spring.datasource.username=medibook_user \
   --spring.datasource.password=medibook_pass
 ```
 
----
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
-## Database Setup
-
-Create the MySQL database and user before starting the service.
+## 🗄️ Database Setup
 
 ```sql
--- Create database
-CREATE DATABASE IF NOT EXISTS schedule_db;
-
--- (Repeat for other services)
+-- Create all required databases
+CREATE DATABASE IF NOT EXISTS appointment_db;
 CREATE DATABASE IF NOT EXISTS auth_db;
 CREATE DATABASE IF NOT EXISTS provider_db;
+CREATE DATABASE IF NOT EXISTS schedule_db;
 
 -- Create shared user
 CREATE USER IF NOT EXISTS 'medibook_user'@'localhost' IDENTIFIED BY 'medibook_pass';
 
 -- Grant permissions
-GRANT ALL PRIVILEGES ON schedule_db.* TO 'medibook_user'@'localhost';
-GRANT ALL PRIVILEGES ON auth_db.*     TO 'medibook_user'@'localhost';
-GRANT ALL PRIVILEGES ON provider_db.* TO 'medibook_user'@'localhost';
+GRANT ALL PRIVILEGES ON appointment_db.* TO 'medibook_user'@'localhost';
+GRANT ALL PRIVILEGES ON auth_db.*        TO 'medibook_user'@'localhost';
+GRANT ALL PRIVILEGES ON provider_db.*    TO 'medibook_user'@'localhost';
+GRANT ALL PRIVILEGES ON schedule_db.*    TO 'medibook_user'@'localhost';
 
 FLUSH PRIVILEGES;
 ```
 
-Hibernate `ddl-auto: update` will create the `availability_slots` table automatically on first startup.
+Hibernate `ddl-auto: update` auto-creates the `appointments` table on first startup.
 
-**Expected table (auto-created by Hibernate):**
+**Expected table:**
+
 ```sql
-CREATE TABLE availability_slots (
-  slot_id          INT AUTO_INCREMENT PRIMARY KEY,
-  provider_id      INT NOT NULL,
-  date             DATE NOT NULL,
-  start_time       TIME NOT NULL,
-  end_time         TIME NOT NULL,
-  duration_minutes INT NOT NULL,
-  is_booked        TINYINT(1) NOT NULL DEFAULT 0,
-  is_blocked       TINYINT(1) NOT NULL DEFAULT 0,
-  recurrence       VARCHAR(20) DEFAULT 'NONE',
-  created_at       DATETIME NOT NULL,
-  version          INT NOT NULL DEFAULT 0
+CREATE TABLE appointments (
+  appointment_id        INT AUTO_INCREMENT PRIMARY KEY,
+  patient_id            INT          NOT NULL,
+  provider_id           INT          NOT NULL,
+  patient_email         VARCHAR(255),
+  slot_id               INT          NOT NULL,
+  service_type          VARCHAR(255) NOT NULL,
+  appointment_date      DATE         NOT NULL,
+  start_time            TIME         NOT NULL,
+  end_time              TIME         NOT NULL,
+  status                VARCHAR(50)  NOT NULL DEFAULT 'SCHEDULED',
+  notes                 TEXT,
+  mode_of_consultation  VARCHAR(50)  NOT NULL,
+  created_at            DATETIME     NOT NULL,
+  updated_at            DATETIME
 );
 ```
 
----
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
-## Swagger UI
+## 📖 Swagger UI
 
-Each service exposes its own Swagger UI. Access them directly (bypassing the gateway):
+Direct access to each service's Swagger UI (bypassing gateway):
 
-| Service           | Swagger URL                                 |
-|-------------------|---------------------------------------------|
-| schedule-service  | http://localhost:8083/swagger-ui.html       |
-| auth-service      | http://localhost:8081/swagger-ui.html       |
-| provider-service  | http://localhost:8082/swagger-ui.html       |
+| Service | URL |
+|---|---|
+| **appointment-service** | http://localhost:8084/swagger-ui.html |
+| schedule-service | http://localhost:8083/swagger-ui.html |
+| auth-service | http://localhost:8081/swagger-ui.html |
+| provider-service | http://localhost:8082/swagger-ui.html |
 
-OpenAPI JSON docs are available at `/api-docs` on each service.
+OpenAPI JSON docs available at `/api-docs` on each service.
 
----
-
-## License
-
-MIT License — see `LICENSE` file in the repository root.
-
----
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
 ### Author👨‍💻
 
 [Harshal Choudhary](https://github.com/Harshal-25C) - Software Developer👨‍💻 | Cloud Enthusiast  
 B.Tech - `[Computer Science & Engineering]`  
 Java | Spring Boot | Spring Security | JWT | MySQL | Clean Architecture
+
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+<div align="center">
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=100&section=footer" width="100%"/>
+
+**MediBook Microservices — UC4 Appointment Service**
+
+Made with ❤️ · Spring Boot 3.2 · Java 17 · RabbitMQ · OpenFeign · Eureka
+
+![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
+![UC4](https://img.shields.io/badge/Feature-UC4_Appointment-brightgreen?style=flat-square)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2.0-6DB33F?style=flat-square&logo=springboot)
+
+</div>
