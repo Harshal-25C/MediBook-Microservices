@@ -1,555 +1,1228 @@
 <div align="center">
 
-# ⭐ MediBook — Review Service
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f0c29,50:302b63,100:24243e&height=220&section=header&text=🔔%20MediBook%20Notification%20Service&fontSize=38&fontColor=ffffff&animation=fadeIn&fontAlignY=40&desc=UC7%20·%20RabbitMQ%20Consumer%20·%20Email%20·%20In-App%20·%20Spring%20Boot%203.2&descAlignY=60&descAlign=50" width="100%"/>
 
-### `feature/UC6-review-service`
+<br/>
 
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.0-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
-[![Java](https://img.shields.io/badge/Java-17-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
-[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
-[![Feign](https://img.shields.io/badge/Feign-Clients_×2-00C7B7?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud-openfeign)
-[![Spring Security](https://img.shields.io/badge/Spring%20Security-JWT-6DB33F?style=for-the-badge&logo=springsecurity&logoColor=white)](https://spring.io/projects/spring-security)
-[![Eureka](https://img.shields.io/badge/Eureka-Discovery-blue?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud-netflix)
-[![Actuator](https://img.shields.io/badge/Actuator-Health_%2F_Metrics-brightgreen?style=for-the-badge&logo=spring&logoColor=white)](https://docs.spring.io/spring-boot/docs/current/actuator-api/)
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+<a href="#">
+  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&size=20&duration=2800&pause=900&color=A78BFA&center=true&vCenter=true&multiline=true&width=700&height=70&lines=Consume+RabbitMQ+Events+→+Store+In-App+Alerts;Send+Emails+via+Gmail+SMTP+·+Smart+Badge+Count;BOOKING+·+CANCELLATION+·+PAYMENT+·+REMINDER" alt="Typing SVG" />
+</a>
 
-> **UC6** · Doctor Rating Engine · Anonymous Reviews · Auto avgRating Sync · 2 Feign Clients
+<br/>
 
-★★★★★
+![Java](https://img.shields.io/badge/Java_17-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot_3.2-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ_Consumer-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL_8-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+![Gmail](https://img.shields.io/badge/Gmail_SMTP-EA4335?style=for-the-badge&logo=gmail&logoColor=white)
+![Swagger](https://img.shields.io/badge/Swagger_UI-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)
+
+<br/>
+
+![Port](https://img.shields.io/badge/PORT-8087-blueviolet?style=flat-square)
+![DB](https://img.shields.io/badge/DB-notification__db-blueviolet?style=flat-square)
+![UC7](https://img.shields.io/badge/UC7-Notification_Service-brightgreen?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
+![Queues](https://img.shields.io/badge/Queues-3_RabbitMQ-orange?style=flat-square)
+![Channels](https://img.shields.io/badge/Channels-APP_%7C_EMAIL_%7C_SMS-purple?style=flat-square)
 
 </div>
 
 ---
 
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
 ## 📋 Table of Contents
 
-| # | Section |
-|---|---------|
-| 01 | [Project Overview](#-project-overview) |
-| 02 | [System Architecture](#-system-architecture) |
-| 03 | [All Microservices](#-all-microservices) |
-| 04 | [Review Service Deep Dive](#-review-service-deep-dive) |
-| 05 | [API Reference](#-api-reference) |
-| 06 | [Review Submission Flow](#-review-submission-flow) |
-| 07 | [Star Rating System](#-star-rating-system) |
-| 08 | [API Testing Guide](#-api-testing-guide) |
-| 09 | [Environment Variables](#-environment-variables) |
-| 10 | [Quick Start](#-quick-start) |
+- [Overview](#-overview)
+- [Complete System Architecture](#-complete-system-architecture)
+- [Full Service Port Map](#-full-service-port-map)
+- [RabbitMQ Event Flow](#-rabbitmq-event-flow)
+- [Notification Service Deep Dive](#-notification-service-deep-dive)
+  - [Tech Stack](#tech-stack)
+  - [Project Structure](#project-structure)
+  - [Entity: Notification](#entity-notification)
+  - [DTOs](#dtos)
+  - [RabbitMQ Consumer](#rabbitmq-consumer--appointmenteventconsumer)
+  - [Feign Client — UserClient](#feign-client--userclient)
+  - [Email Integration](#email-integration--gmail-smtp)
+  - [Business Logic Rules](#business-logic-rules)
+- [API Endpoints Summary](#-api-endpoints-summary)
+- [API Testing via Gateway](#-api-testing-via-api-gateway)
+- [Error Responses](#-error-responses)
+- [Environment Variables](#-environment-variables)
+- [Running the Services](#-running-the-services)
+- [Database Setup](#-database-setup)
+- [Swagger UI](#-swagger-ui)
 
----
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
-## 🏥 Project Overview
+## 🔔 Overview
 
-**MediBook** is an Online Appointment Booking System built as a distributed microservices platform using Spring Boot, Spring Cloud, and Spring Security. Patients book appointments with healthcare providers, manage time slots, process payments, and submit post-appointment reviews — all coordinated through an API Gateway with JWT authentication.
+The **Notification Service** is the **UC7** microservice in the MediBook Online Appointment Booking System. It is the **sole consumer** of all appointment lifecycle events from RabbitMQ and is responsible for delivering alerts to users across multiple channels.
 
-The **UC6 Review Service** is the reputation engine of the platform. It enables patients to submit star ratings and written feedback after completed appointments, with full anonymous support. Every new review automatically recalculates and pushes the updated average rating to `provider-service` via Feign — keeping doctor profiles accurate in real time.
-
-> ⭐ **Key Design Constraint:** Reviews are gated behind `COMPLETED` appointment status. The service makes a Feign call to `appointment-service` to verify this before allowing submission — preventing reviews for no-shows or pending appointments.
-
-> 🔄 **Auto Rating Sync:** Every submit, update, and delete triggers `updateDoctorRating()` which recalculates the provider average using `AVG(rating)` and immediately calls `PUT /providers/{id}/rating` on `provider-service` via Feign.
-
----
-
-## 🏗 System Architecture
-
-```mermaid
-graph TD
-    FE["🖥️ React Frontend\n:5173"]
-    GW["🌐 API Gateway :8080\nJWT Filter + Routing"]
-    AUTH["🔑 Auth Service :8081"]
-    PROV["👨‍⚕️ Provider Service :8082\nstores avgRating"]
-    SCHED["📅 Schedule Service :8083"]
-    APPT["🏥 Appointment Service :8084\nstatus: COMPLETED?"]
-    PAY["💳 Payment Service :8085"]
-    REV["⭐ Review Service :8086\nFeign × 2"]
-    EUR["🔍 Eureka Server :8761"]
-    DB[("review_db\nMySQL")]
-
-    FE -->|HTTP + JWT| GW
-    GW -->|/reviews/**| REV
-    GW -->|/providers/**| PROV
-    GW -->|/appointments/**| APPT
-    GW -->|/auth/**| AUTH
-    GW -->|/payments/**| PAY
-    GW -->|/slots/**| SCHED
-    REV -->|"Feign: GET /appointments/{id}"| APPT
-    REV -->|"Feign: PUT /providers/{id}/rating"| PROV
-    REV --- DB
-    AUTH -.->|registers| EUR
-    GW -.->|registers| EUR
-    REV -.->|registers| EUR
-    APPT -.->|registers| EUR
-    PROV -.->|registers| EUR
+```
+appointment-service publishes → RabbitMQ (3 queues)
+                               ↓
+                  notification-service CONSUMES
+                               ↓
+            ┌──────────────────┼───────────────────┐
+            ▼                  ▼                   ▼
+       APP Channel         EMAIL Channel       SMS Channel
+   (saved to DB)       (Gmail SMTP sends)   (mock / Twilio later)
+   shown in bell        real inbox email     phone message
 ```
 
----
+**Key responsibilities:**
 
-## 🧩 All Microservices
+- **RabbitMQ Consumer** — listens on 3 queues: `appointment.booked`, `appointment.cancelled`, `appointment.completed`
+- **In-App Notifications** — stores notifications in `notification_db`, serves them via REST API (bell icon, badge count)
+- **Email Notifications** — sends real emails via Gmail SMTP using `JavaMailSender`
+- **SMS Notifications** — mock implementation (Twilio-ready), toggled via config flag
+- **Bulk Notifications** — admin endpoint to announce to many users at once
+- **Read/Unread tracking** — supports per-user unread badge count and mark-as-read
+- **Feign Client** — fetches user email from `auth-service` when sending EMAIL channel notifications
 
-| Service | Port | Key Tech | Description |
-|---------|------|----------|-------------|
-| 🔍 **Eureka Server** | `8761` | Spring Eureka | Service discovery. **Start this first.** Credentials: `admin / medibook123` |
-| 🌐 **API Gateway** | `8080` | Spring Cloud Gateway, JWT | Single entry point. Routes all traffic. CORS for `:5173` & `:5174`. |
-| 🔑 **Auth Service** | `8081` | Spring Security, JWT, SMTP | Registration, login, token generation. Roles: `PATIENT`, `DOCTOR`, `ADMIN`. |
-| 👨‍⚕️ **Provider Service** | `8082` | JPA, Feign target | Doctor profile management. Stores `avgRating`. Exposes `PUT /providers/{id}/rating`. |
-| 📅 **Schedule Service** | `8083` | JPA | Time-slot management. Create & book available slots with locking. |
-| 🏥 **Appointment Service** | `8084` | Feign, RabbitMQ | Core booking engine. `SCHEDULED → COMPLETED → CANCELLED`. Feign target for review-service. |
-| 💳 **Payment Service** | `8085` | Razorpay SDK, HMAC | UC5 — Razorpay-ready payment engine. Initiation, verification, refunds. |
-| ⭐ **Review Service** ★ | `8086` | Feign ×2, Actuator | **UC6 — This service.** Star ratings, anonymous reviews, auto avgRating sync. |
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
----
+## 🏗️ Complete System Architecture
 
-## ⭐ Review Service Deep Dive
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║                        CLIENT (Browser / Mobile App)                    ║
+╚═══════════════════════════════════╦════════════════════════════════════╝
+                                    ║ All HTTP traffic
+                                    ▼
+╔══════════════════════════════════════════════════════════════════════════╗
+║                     API GATEWAY  :8080                                  ║
+║  • JwtAuthenticationFilter (Global)                                     ║
+║  • Forwards: X-User-Id · X-User-Role · X-User-Email                    ║
+║  • CORS: localhost:5173, localhost:5174                                  ║
+║  Routes:                                                                ║
+║    /auth/**        → auth-service        :8081                          ║
+║    /providers/**   → provider-service    :8082                          ║
+║    /slots/**       → schedule-service    :8083                          ║
+║    /appointments/**→ appointment-service :8084                          ║
+║    /payments/**    → payment-service     :8085                          ║
+║    /reviews/**     → review-service      :8086                          ║
+║    /notifications/**→ notification-service:8087  ◄── THIS SERVICE       ║
+║    /records/**     → record-service      :8088                          ║
+╚═════════════════════════════════╦════════════════════════════════════════╝
+                                  ║ lb:// (Eureka)
+        ┌─────────────────────────┼─────────────────────────────────┐
+        ▼                         ▼                                 ▼
+ ┌─────────────┐      ┌────────────────────┐            ┌──────────────────┐
+ │auth-service │      │ appointment-service│            │schedule-service  │
+ │  :8081      │◄─────┤    :8084           ├───Feign───►│  :8083           │
+ │  auth_db    │      │  appointment_db    │            │  schedule_db     │
+ └─────────────┘      └─────────┬──────────┘            └──────────────────┘
+        ▲                       │ RabbitMQ PUBLISH
+        │ Feign                 ▼
+        │             ┌──────────────────────────────────┐
+        │             │        RabbitMQ  :5672           │
+        │             │    Exchange: medibook.exchange    │
+        │             │    (TopicExchange, durable)       │
+        │             │                                  │
+        │             │  appointment.booked    ──────┐   │
+        │             │  appointment.cancelled ──────┤   │
+        │             │  appointment.completed ──────┘   │
+        │             └──────────────┬───────────────────┘
+        │                            │ @RabbitListener CONSUME
+        │                            ▼
+        │             ┌──────────────────────────────────┐
+        └─────────────┤    notification-service  :8087   │
+                      │       notification_db             │
+                      │                                  │
+                      │  ┌─────────────────────────────┐ │
+                      │  │ AppointmentEventConsumer     │ │
+                      │  │ • handleBooked()             │ │
+                      │  │ • handleCancelled()          │ │
+                      │  │ • handleCompleted()          │ │
+                      │  └─────────────────────────────┘ │
+                      │                                  │
+                      │  Channels:                       │
+                      │  APP   → saved to DB             │
+                      │  EMAIL → Gmail SMTP              │
+                      │  SMS   → Mock (Twilio-ready)     │
+                      └──────────────────────────────────┘
 
-### 📦 Entity: `Review`
+╔══════════════════════════════════════════════════════════════════════════╗
+║                    EUREKA SERVER  :8761                                 ║
+║           Service Registry  ·  admin / medibook123                     ║
+║           Dashboard: http://localhost:8761                              ║
+╚══════════════════════════════════════════════════════════════════════════╝
+```
 
-Maps to the `reviews` MySQL table. `@UniqueConstraint` on `appointment_id` enforces one review per appointment at the database level.
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
-| Field | Type | Constraint | Description |
-|-------|------|-----------|-------------|
-| `reviewId` | INT | PK, AUTO | Primary key, auto-generated |
-| `appointmentId` | INT | UNIQUE, NOT NULL | One review per appointment — DB enforced |
-| `patientId` | INT | NOT NULL | Links to auth-service user |
-| `providerId` | INT | NOT NULL | Links to provider-service — used for rating recalc |
-| `rating` | INT | NOT NULL | 1 to 5 stars — validated in DTO + service layer |
-| `comment` | TEXT | NULLABLE | Optional written feedback from patient |
-| `isAnonymous` | BOOLEAN | NOT NULL, default `false` | `true` → display as "Anonymous Patient" |
-| `createdAt` | DATETIME | NOT NULL, immutable | Auto-set on `@PrePersist` |
-| `updatedAt` | DATETIME | — | Auto-set on `@PreUpdate` |
+## 🗺️ Full Service Port Map
 
-### 🔌 Service Interface: `ReviewService`
+| Service | Port | Database | Role in System |
+|---|---|---|---|
+| `eureka-server` | **8761** | — | Service registry — Start **first** |
+| `api-gateway` | **8080** | — | Single entry point — Start **second** |
+| `auth-service` | **8081** | `auth_db` | JWT, OTP, OAuth2, user profiles |
+| `provider-service` | **8082** | `provider_db` | Doctor profiles (UC2) |
+| `schedule-service` | **8083** | `schedule_db` | Availability slots (UC3) |
+| `appointment-service` | **8084** | `appointment_db` | Appointments — **RabbitMQ PUBLISHER** (UC4) |
+| `payment-service` | **8085** | `payment_db` | Payments (UC5) |
+| `review-service` | **8086** | `review_db` | Reviews (UC6) |
+| `notification-service` | **8087** | `notification_db` | **← This service (UC7) — RabbitMQ CONSUMER** |
+| `record-service` | **8088** | `record_db` | Medical records (UC8) |
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+## 🐇 RabbitMQ Event Flow
+
+This is the core of UC7. Understanding this flow is critical.
+
+### Producer Side — `appointment-service`
 
 ```java
-public interface ReviewService {
-    Review submitReview(ReviewRequest request);
-    List<Review> getReviewsByProvider(int providerId);
-    List<Review> getReviewsByPatient(int patientId);
-    Review getReviewById(int reviewId);
-    Review updateReview(int reviewId, ReviewRequest request);
-    void deleteReview(int reviewId);
-    double getAverageRating(int providerId);
-    long getReviewCount(int providerId);
-}
+// Exchange declared in appointment-service RabbitMQConfig.java
+Exchange:  medibook.exchange  (TopicExchange, durable=true)
+
+Queue 1:   medibook.appointment.booked     ← routing key: appointment.booked
+Queue 2:   medibook.appointment.cancelled  ← routing key: appointment.cancelled
+Queue 3:   medibook.appointment.completed  ← routing key: appointment.completed
 ```
 
-### 🔗 Two Feign Clients
+### Consumer Side — `notification-service`
 
 ```java
-// 1. Validates appointment status before allowing review submission
-@FeignClient(name = "appointment-service")
-public interface AppointmentClient {
-    @GetMapping("/appointments/{appointmentId}")
-    AppointmentDto getById(@PathVariable int appointmentId);
-}
+// AppointmentEventConsumer.java
+@RabbitListener(queues = "medibook.appointment.booked")
+public void handleBooked(AppointmentEventDto event)
 
-// 2. Auto-syncs avgRating to provider-service after every review change
-@FeignClient(name = "provider-service")
-public interface ProviderClient {
-    @PutMapping("/providers/{providerId}/rating")
-    void updateRating(@PathVariable int providerId,
-                      @RequestParam double avgRating);
-}
+@RabbitListener(queues = "medibook.appointment.cancelled")
+public void handleCancelled(AppointmentEventDto event)
+
+@RabbitListener(queues = "medibook.appointment.completed")
+public void handleCompleted(AppointmentEventDto event)
 ```
 
-### 🗄️ Key Repository Queries
+### End-to-End Event Flow
 
-```java
-// All reviews for a doctor — newest first
-List<Review> findByProviderIdOrderByCreatedAtDesc(int providerId);
-
-// Calculate average rating (called after every write operation)
-@Query("SELECT AVG(r.rating) FROM Review r WHERE r.providerId = :providerId")
-Double calculateAverageRatingByProviderId(@Param("providerId") int providerId);
-
-// Count for doctor profile: "150 reviews"
-long countByProviderId(int providerId);
-
-// Duplicate check — one review per appointment
-Optional<Review> findByAppointmentId(int appointmentId);
-
-// Filter by star rating (admin moderation / patient filtering)
-List<Review> findByProviderIdAndRating(int providerId, int rating);
+```
+appointment-service                 RabbitMQ                 notification-service
+       │                               │                             │
+       │  bookAppointment()            │                             │
+       ├─── publishBooked() ──────────►│                             │
+       │   routing: appointment.booked │                             │
+       │                               ├── deliver to consumer ─────►│
+       │                               │                             │ handleBooked()
+       │                               │                             │  → save APP notification
+       │                               │                             │  → if EMAIL: send Gmail
+       │                               │                             │
+       │  cancelAppointment()          │                             │
+       ├─── publishCancelled() ───────►│                             │
+       │  routing: appointment.cancelled                             │
+       │                               ├── deliver to consumer ─────►│
+       │                               │                             │ handleCancelled()
+       │                               │                             │  → save APP notification
+       │                               │                             │
+       │  completeAppointment()        │                             │
+       ├─── publishCompleted() ───────►│                             │
+       │  routing: appointment.completed                             │
+       │                               ├── deliver to consumer ─────►│
+       │                               │                             │ handleCompleted()
+       │                               │                             │  → save APP notification
 ```
 
-### ⚙️ Auto Rating Recalculation
+### Event Payload — `AppointmentEventDto`
 
-```java
-// Triggered automatically after EVERY write: submit, update, delete
-private void updateDoctorRating(int providerId) {
-    double newAvg = getAverageRating(providerId);      // SQL AVG query
-    providerClient.updateRating(providerId, newAvg);   // Feign PUT call
-}
-
-public double getAverageRating(int providerId) {
-    Double avg = reviewRepository.calculateAverageRatingByProviderId(providerId);
-    return avg != null ? Math.round(avg * 10.0) / 10.0 : 0.0;
-    // Rounded to 1 decimal place: 4.6667 → 4.7
-}
-```
-
----
-
-## 📡 API Reference
-
-> **Base URL (via Gateway):** `http://localhost:8080/reviews`
-> **Direct URL:** `http://localhost:8086/reviews`
-> **Swagger UI:** `http://localhost:8086/swagger-ui.html`
-> **Actuator:** `http://localhost:8086/actuator/health`
->
-> All endpoints require: `Authorization: Bearer <JWT_TOKEN>`
-
-### Patient Operations
-
-| Method | Endpoint | Status | Description |
-|--------|----------|--------|-------------|
-| `POST` | `/reviews/submit` | 201 | Submit new review — requires COMPLETED appointment |
-| `PUT` | `/reviews/{reviewId}` | 200 | Edit review — updates rating, comment, anonymous flag |
-
-### Query Endpoints
-
-| Method | Endpoint | Status | Description |
-|--------|----------|--------|-------------|
-| `GET` | `/reviews/provider/{providerId}` | 200 | All reviews for a doctor (newest first) |
-| `GET` | `/reviews/provider/{providerId}/average` | 200 | Average star rating for a doctor |
-| `GET` | `/reviews/provider/{providerId}/count` | 200 | Total review count for a doctor |
-| `GET` | `/reviews/patient/{patientId}` | 200 | All reviews submitted by a patient |
-| `GET` | `/reviews/{reviewId}` | 200 | Single review by ID |
-
-### Admin Operations
-
-| Method | Endpoint | Status | Description |
-|--------|----------|--------|-------------|
-| `DELETE` | `/reviews/{reviewId}` | 200 | Delete review — triggers avgRating recalculation |
-
----
-
-## 🔄 Review Submission Flow
-
-```mermaid
-sequenceDiagram
-    actor Patient
-    participant GW as API Gateway :8080
-    participant RevSvc as Review Service :8086
-    participant ApptSvc as Appointment Service :8084
-    participant ProvSvc as Provider Service :8082
-    participant DB as review_db (MySQL)
-
-    Patient->>GW: POST /reviews/submit + JWT
-    GW->>RevSvc: JWT validated, forward request
-    RevSvc->>ApptSvc: Feign: GET /appointments/{id}
-    ApptSvc-->>RevSvc: AppointmentDto {status: "COMPLETED"}
-
-    alt Status not COMPLETED
-        RevSvc-->>Patient: 400 Bad Request
-    end
-
-    RevSvc->>DB: findByAppointmentId() duplicate check
-    alt Review already exists
-        RevSvc-->>Patient: 409 Conflict
-    end
-
-    RevSvc->>DB: save(Review) with @PrePersist timestamps
-    DB-->>RevSvc: Review saved
-
-    RevSvc->>DB: calculateAverageRatingByProviderId()
-    DB-->>RevSvc: AVG = 4.7
-
-    RevSvc->>ProvSvc: Feign: PUT /providers/{id}/rating?avgRating=4.7
-    ProvSvc-->>RevSvc: 200 OK
-
-    RevSvc-->>Patient: 201 Created with Review object
-```
-
----
-
-## ⭐ Star Rating System
-
-| Stars | Value | Label |
-|-------|-------|-------|
-| ★☆☆☆☆ | 1 | Very Poor |
-| ★★☆☆☆ | 2 | Poor |
-| ★★★☆☆ | 3 | Average |
-| ★★★★☆ | 4 | Good |
-| ★★★★★ | 5 | Excellent |
-
-> ⚠️ **Business Rules:** Rating must be 1–5 (validated by `@Min(1) @Max(5)` in DTO and again in service). Appointment must be `COMPLETED` (verified via Feign). One review per appointment (unique DB constraint + service-level check). Every write auto-syncs provider `avgRating`.
-
----
-
-## 🧪 API Testing Guide
-
-> ⚠️ **Prerequisites:** All services running · MySQL up · An appointment with status `COMPLETED` exists · Valid JWT token
-
-### Step 1 — Get JWT Token
-
-```bash
-# Register patient
-curl -X POST http://localhost:8080/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Test Patient","email":"patient@test.com","password":"Password@123","role":"PATIENT"}'
-
-# Login → save token
-curl -X POST http://localhost:8080/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"patient@test.com","password":"Password@123"}'
-
-TOKEN="eyJhbGciOiJIUzI1NiJ9..."
-```
-
----
-
-### Step 2 — Submit Reviews
-
-```bash
-# 5-star named review
-curl -X POST http://localhost:8080/reviews/submit \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{
-    "appointmentId": 7,
-    "patientId": 12,
-    "providerId": 3,
-    "rating": 5,
-    "comment": "Excellent consultation. Very professional.",
-    "isAnonymous": false
-  }'
-
-# 3-star anonymous review
-curl -X POST http://localhost:8080/reviews/submit \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{
-    "appointmentId": 8,
-    "patientId": 12,
-    "providerId": 3,
-    "rating": 3,
-    "comment": "Average experience, long wait time.",
-    "isAnonymous": true
-  }'
-```
-
-**✅ 201 Created:**
 ```json
 {
-  "reviewId": 1,
-  "appointmentId": 7,
-  "patientId": 12,
-  "providerId": 3,
-  "rating": 5,
-  "comment": "Excellent consultation. Very professional.",
-  "anonymous": false,
-  "createdAt": "2026-04-22T10:30:00",
-  "updatedAt": "2026-04-22T10:30:00"
+  "appointmentId": 1,
+  "patientId": 1,
+  "providerId": 1,
+  "eventType": "BOOKED",
+  "serviceType": "General Consultation",
+  "modeOfConsultation": "IN_PERSON",
+  "appointmentDate": "2026-05-15",
+  "startTime": "10:00",
+  "endTime": "10:30",
+  "message": "Your appointment on 2026-05-15 at 10:00"
+}
+```
+
+### What Each Handler Creates
+
+| Queue | Event Type | Title Created | Notification Type | Channel |
+|---|---|---|---|---|
+| `medibook.appointment.booked` | `BOOKED` | "Appointment Confirmed!" | `BOOKING` | `APP` |
+| `medibook.appointment.cancelled` | `CANCELLED` | "Appointment Cancelled" | `CANCELLATION` | `APP` |
+| `medibook.appointment.completed` | `COMPLETED` | "Appointment Completed" | `BOOKING` | `APP` |
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+## 🔬 Notification Service Deep Dive
+
+### Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Language | Java 17 |
+| Framework | Spring Boot 3.2.0 |
+| Cloud | Spring Cloud 2023.0.0 (Eureka Client, OpenFeign) |
+| Database | MySQL 8 — `notification_db` |
+| ORM | Spring Data JPA / Hibernate |
+| Messaging | Spring AMQP / RabbitMQ (`@RabbitListener` — CONSUMER) |
+| Email | Spring Boot Mail + JavaMailSender (Gmail SMTP) |
+| SMS | Mock implementation (Twilio-ready, disabled by default) |
+| Security | Spring Security (stateless, JWT validated at gateway) |
+| Docs | Springdoc OpenAPI 2.3.0 (Swagger UI) |
+| Serialization | Jackson2JsonMessageConverter (JSON over RabbitMQ) |
+| Build | Maven 3 |
+| Lombok | 1.18.30 |
+| JWT | JJWT 0.11.5 |
+
+### Project Structure
+
+```
+notification-service/
+└── src/main/java/com/medibook/notification/
+    ├── NotificationServiceApplication.java      # Main — @EnableRabbit, @EnableFeignClients
+    ├── client/
+    │   └── UserClient.java                      # Feign → auth-service (/auth/profile/{userId})
+    ├── config/
+    │   ├── RabbitMQConfig.java                  # Jackson2JsonMessageConverter bean
+    │   └── SecurityConfig.java                  # Stateless, all routes permitAll (JWT at gateway)
+    ├── dto/
+    │   ├── AppointmentEventDto.java             # RabbitMQ message shape (from appointment-service)
+    │   ├── NotificationRequest.java             # REST API request DTO (with validation)
+    │   └── UserDto.java                         # Feign response from auth-service
+    ├── entity/
+    │   └── Notification.java                    # JPA entity → notifications table
+    ├── exception/
+    │   ├── BadRequestException.java             # 400
+    │   ├── ResourceNotFoundException.java       # 404
+    │   ├── DuplicateResourceException.java      # 409
+    │   ├── ForbiddenException.java              # 403
+    │   ├── UnauthorizedException.java           # 401
+    │   ├── ErrorResponse.java                   # Standardized error shape
+    │   └── GlobalExceptionHandler.java          # @ControllerAdvice catches all
+    ├── messaging/
+    │   └── AppointmentEventConsumer.java        # @RabbitListener on 3 queues
+    ├── repository/
+    │   └── NotificationRepository.java          # JPA repo with custom JPQL queries
+    ├── resource/
+    │   └── NotificationResource.java            # REST controller — /notifications/**
+    └── service/
+        ├── NotificationService.java             # Interface contract
+        └── impl/
+            └── NotificationServiceImpl.java     # Business logic + email sending
+```
+
+### Entity: Notification
+
+Maps to the `notifications` table in `notification_db`.
+
+| Column | Type | Nullable | Default | Description |
+|---|---|---|---|---|
+| `notificationId` | INT (PK, AI) | No | — | Auto-generated primary key |
+| `recipientId` | INT | No | — | User ID of the notification recipient |
+| `type` | VARCHAR | No | — | `BOOKING` / `REMINDER` / `CANCELLATION` / `PAYMENT` / `FOLLOWUP` / `ANNOUNCEMENT` |
+| `title` | VARCHAR | No | — | Short heading shown in notification bell |
+| `message` | VARCHAR(1000) | No | — | Full notification message body |
+| `channel` | VARCHAR | No | — | `APP` / `EMAIL` / `SMS` |
+| `relatedId` | INT | Yes | 0 | ID of the linked record (e.g. `appointmentId`) |
+| `relatedType` | VARCHAR | Yes | — | Type of linked record: `APPOINTMENT` / `PAYMENT` / `RECORD` |
+| `isRead` | BOOLEAN | No | `false` | `false` = unread (shown in badge); `true` = read |
+| `sentAt` | DATETIME | No | auto | Timestamp set automatically via `@PrePersist` |
+
+### DTOs
+
+**`NotificationRequest`** — REST API input for manual/programmatic sends:
+
+| Field | Type | Required | Validation | Description |
+|---|---|---|---|---|
+| `recipientId` | int | Yes | `@NotNull` | Target user ID |
+| `type` | String | Yes | `@NotBlank` | `BOOKING` / `REMINDER` / `CANCELLATION` / `PAYMENT` / `FOLLOWUP` / `ANNOUNCEMENT` |
+| `email` | String | No | — | Override email address (skips Feign lookup to auth-service) |
+| `title` | String | Yes | `@NotBlank` | Short notification heading |
+| `message` | String | Yes | `@NotBlank` | Full notification body text |
+| `channel` | String | No | `APP` | `APP` / `EMAIL` / `SMS` |
+| `relatedId` | int | No | 0 | ID of linked record for deep-linking |
+| `relatedType` | String | No | — | Type of linked record |
+
+**`AppointmentEventDto`** — shape of RabbitMQ messages consumed from `appointment-service`:
+
+| Field | Description |
+|---|---|
+| `appointmentId` | The appointment that triggered this event |
+| `patientId` | Used as `recipientId` for the notification |
+| `providerId` | Doctor involved |
+| `eventType` | `BOOKED` / `CANCELLED` / `COMPLETED` |
+| `serviceType` | Medical service type |
+| `modeOfConsultation` | `IN_PERSON` or `TELECONSULTATION` |
+| `appointmentDate` | Date string for the message body |
+| `startTime` / `endTime` | Time strings |
+| `message` | Pre-built text from `appointment-service` |
+
+**`UserDto`** — Feign response from `auth-service`:
+
+| Field | Description |
+|---|---|
+| `userId` | User ID |
+| `fullName` | User's full name |
+| `email` | Used to send email when `channel=EMAIL` and no `email` field in request |
+| `phone` | For SMS channel |
+| `role` | `PATIENT` / `DOCTOR` / `ADMIN` |
+| `isActive` | Account status |
+
+### RabbitMQ Consumer — `AppointmentEventConsumer`
+
+Three `@RabbitListener` methods, one per queue:
+
+```java
+@RabbitListener(queues = "medibook.appointment.booked")
+public void handleBooked(AppointmentEventDto event)
+// Creates: type=BOOKING, title="Appointment Confirmed!"
+// Message: "Your appointment is confirmed for {date} at {startTime}"
+
+@RabbitListener(queues = "medibook.appointment.cancelled")
+public void handleCancelled(AppointmentEventDto event)
+// Creates: type=CANCELLATION, title="Appointment Cancelled"
+// Message: "Your appointment on {date} has been cancelled."
+
+@RabbitListener(queues = "medibook.appointment.completed")
+public void handleCompleted(AppointmentEventDto event)
+// Creates: type=BOOKING, title="Appointment Completed"
+// Message: "Your appointment has been completed. Thank you for choosing MediBook!"
+```
+
+All three create a `NotificationRequest` and call `notificationService.send()` — the same path as a manual REST API call, meaning they go through the same validation and channel routing.
+
+### Feign Client — `UserClient`
+
+Used to resolve user email when `channel=EMAIL` is requested but no `email` field is provided in the request.
+
+```java
+@FeignClient(name = "auth-service")
+public interface UserClient {
+    @GetMapping("/auth/profile/{userId}")
+    UserDto getUserById(@PathVariable("userId") int userId);
+}
+```
+
+Only called during `send()` when `channel=EMAIL` and `request.getEmail()` is null or empty.
+
+### Email Integration — Gmail SMTP
+
+Configured in `application.yml`:
+
+```yaml
+spring:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}   # your Gmail address
+    password: ${MAIL_PASSWORD}   # Gmail App Password (NOT your account password)
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+```
+
+**Setup steps for Gmail:**
+1. Enable 2-Factor Authentication on your Google account
+2. Go to Google Account → Security → App Passwords
+3. Generate an App Password for "Mail"
+4. Use that 16-character password as `MAIL_PASSWORD`
+
+Email send path in `NotificationServiceImpl.send()`:
+```
+channel == "EMAIL" AND emailEnabled == true
+    → if request.email != null → use it directly
+    → else → Feign call to auth-service → get user.email
+    → SimpleMailMessage → JavaMailSender.send()
+    → on failure: logs error, does NOT throw (non-blocking)
+```
+
+**Email is toggled globally:**
+```yaml
+notification:
+  email:
+    enabled: true   # set to false to disable all email sending
+  sms:
+    enabled: false  # SMS is mock-only for now
+```
+
+### Business Logic Rules
+
+| Operation | Validation / Guards |
+|---|---|
+| `send()` | `channel` must be `APP`, `EMAIL`, or `SMS`; `type` must be one of the 6 valid types |
+| `markAsRead()` | Throws `BadRequestException` if notification is already read |
+| `sendBulk()` | `recipientIds` list cannot be null/empty; title and message cannot be blank |
+| `sendEmail()` | `toEmail` cannot be null/empty; wraps `JavaMailSender` in try-catch (never crashes on email failure) |
+| `sendSms()` | `phoneNumber` cannot be null/empty; currently logs only (mock) |
+| `deleteNotification()` | Throws `ResourceNotFoundException` if notification not found |
+| Email fallback | If `email` field not in request → Feign to auth-service for user email; if that also fails → error logged, app notification still saved |
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+## 📡 API Endpoints Summary
+
+**Base URL (via gateway):** `http://localhost:8080`
+**Base URL (direct):** `http://localhost:8087`
+
+All endpoints are prefixed with `/notifications`.
+
+| Method | Endpoint | Auth | Who Calls | Description |
+|---|---|---|---|---|
+| `POST` | `/notifications/send` | Required | Any service / Admin | Send a single notification (APP, EMAIL, or SMS) |
+| `POST` | `/notifications/bulk` | Required | Admin | Send announcement to multiple users |
+| `GET` | `/notifications/recipient/{recipientId}` | Required | Patient / Doctor | Get all notifications for a user (newest first) |
+| `GET` | `/notifications/unread/count/{recipientId}` | Required | UI (bell icon) | Get unread notification badge count |
+| `PUT` | `/notifications/{notificationId}/read` | Required | Patient | Mark one notification as read |
+| `PUT` | `/notifications/read/all/{recipientId}` | Required | Patient | Mark ALL notifications as read |
+| `DELETE` | `/notifications/{notificationId}` | Required | Patient | Delete a notification |
+| `GET` | `/notifications/all` | Required | Admin | Get all platform notifications (admin log) |
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+## 🧪 API Testing via API Gateway
+
+> All examples use `http://localhost:8080` (API Gateway).
+> Replace `<YOUR_JWT_TOKEN>` with a token from auth-service login.
+
+---
+
+### 🔐 Step 0 — Get a JWT Token
+
+```bash
+# Register
+curl -X POST http://localhost:8080/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Priya Patel",
+    "email": "priya.patel@medibook.com",
+    "password": "Patient@123",
+    "phone": "9876543210",
+    "role": "PATIENT"
+  }'
+
+# Login
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "priya.patel@medibook.com",
+    "password": "Patient@123"
+  }'
+```
+
+**Sample Response:**
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "type": "Bearer",
+  "userId": 1,
+  "email": "priya.patel@medibook.com",
+  "role": "PATIENT"
 }
 ```
 
 ---
 
-### Step 3 — Query Reviews
+### 1️⃣ Send an In-App Notification (APP channel)
+
+**`POST /notifications/send`**
+
+Creates and stores a notification in the `notifications` table. Recipient sees it in their notification bell. This is the most common channel — all RabbitMQ-driven notifications use `APP`.
 
 ```bash
-# All reviews for doctor (newest first)
-curl http://localhost:8080/reviews/provider/3 \
-  -H "Authorization: Bearer $TOKEN"
-
-# Average star rating
-curl http://localhost:8080/reviews/provider/3/average \
-  -H "Authorization: Bearer $TOKEN"
-# → {"providerId": 3, "averageRating": 4.7}
-
-# Total review count
-curl http://localhost:8080/reviews/provider/3/count \
-  -H "Authorization: Bearer $TOKEN"
-# → {"providerId": 3, "totalReviews": 2}
-
-# All reviews by patient
-curl http://localhost:8080/reviews/patient/12 \
-  -H "Authorization: Bearer $TOKEN"
-
-# Single review
-curl http://localhost:8080/reviews/1 \
-  -H "Authorization: Bearer $TOKEN"
-```
-
----
-
-### Step 4 — Update Review
-
-```bash
-curl -X PUT http://localhost:8080/reviews/1 \
+curl -X POST http://localhost:8080/notifications/send \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
   -d '{
-    "appointmentId": 7,
-    "patientId": 12,
-    "providerId": 3,
-    "rating": 4,
-    "comment": "Good doctor but the waiting room was crowded.",
-    "isAnonymous": true
+    "recipientId": 1,
+    "type": "BOOKING",
+    "title": "Appointment Confirmed!",
+    "message": "Your appointment with Dr. Sharma is confirmed for 2026-05-15 at 10:00 AM.",
+    "channel": "APP",
+    "relatedId": 1,
+    "relatedType": "APPOINTMENT"
   }'
 ```
 
----
+**Expected Response — 201 Created:**
 
-### Step 5 — Admin Delete
-
-```bash
-curl -X DELETE http://localhost:8080/reviews/1 \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# → {"message": "Review deleted successfully."}
-# → provider avgRating is automatically recalculated
+```json
+{
+  "notificationId": 1,
+  "recipientId": 1,
+  "type": "BOOKING",
+  "title": "Appointment Confirmed!",
+  "message": "Your appointment with Dr. Sharma is confirmed for 2026-05-15 at 10:00 AM.",
+  "channel": "APP",
+  "relatedId": 1,
+  "relatedType": "APPOINTMENT",
+  "read": false,
+  "sentAt": "2026-04-22T10:00:00"
+}
 ```
 
 ---
 
-### ❌ Error Scenarios
+### 2️⃣ Send an Email Notification
+
+**`POST /notifications/send`**
+
+Sends a real email via Gmail SMTP **and** saves the notification to DB. Requires `MAIL_USERNAME` and `MAIL_PASSWORD` environment variables to be set.
 
 ```bash
-# 400 — appointment not COMPLETED
-curl -X POST http://localhost:8080/reviews/submit \
+curl -X POST http://localhost:8080/notifications/send \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"appointmentId":99,"patientId":12,"providerId":3,"rating":5}'
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
+  -d '{
+    "recipientId": 1,
+    "type": "BOOKING",
+    "email": "priya.patel@medibook.com",
+    "title": "Appointment Confirmation — MediBook",
+    "message": "Dear Priya, your appointment with Dr. Sharma on 2026-05-15 at 10:00 AM has been confirmed. Mode: In-Person. Please arrive 10 minutes early.",
+    "channel": "EMAIL",
+    "relatedId": 1,
+    "relatedType": "APPOINTMENT"
+  }'
+```
 
-# 409 — duplicate review for same appointment
-curl -X POST http://localhost:8080/reviews/submit \
+**Expected Response — 201 Created:**
+
+```json
+{
+  "notificationId": 2,
+  "recipientId": 1,
+  "type": "BOOKING",
+  "title": "Appointment Confirmation — MediBook",
+  "message": "Dear Priya, your appointment with Dr. Sharma on 2026-05-15 at 10:00 AM has been confirmed...",
+  "channel": "EMAIL",
+  "relatedId": 1,
+  "relatedType": "APPOINTMENT",
+  "read": false,
+  "sentAt": "2026-04-22T10:01:00"
+}
+```
+
+> **Note:** If `email` field is omitted, the service calls `auth-service` via Feign to fetch the user's email from their profile.
+
+---
+
+### 3️⃣ Send a Cancellation Notification
+
+**`POST /notifications/send`**
+
+```bash
+curl -X POST http://localhost:8080/notifications/send \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"appointmentId":7,"patientId":12,"providerId":3,"rating":4}'
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
+  -d '{
+    "recipientId": 1,
+    "type": "CANCELLATION",
+    "title": "Appointment Cancelled",
+    "message": "Your appointment on 2026-05-15 at 10:00 AM has been cancelled. The slot has been released.",
+    "channel": "APP",
+    "relatedId": 1,
+    "relatedType": "APPOINTMENT"
+  }'
+```
 
-# 400 — rating out of valid range (must be 1–5)
-curl -X POST http://localhost:8080/reviews/submit \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"appointmentId":10,"patientId":12,"providerId":3,"rating":6}'
+**Expected Response — 201 Created:**
 
-# 404 — review not found
-curl http://localhost:8080/reviews/9999 \
-  -H "Authorization: Bearer $TOKEN"
-
-# 401 — missing authorization
-curl http://localhost:8080/reviews/provider/3/average
+```json
+{
+  "notificationId": 3,
+  "recipientId": 1,
+  "type": "CANCELLATION",
+  "title": "Appointment Cancelled",
+  "message": "Your appointment on 2026-05-15 at 10:00 AM has been cancelled. The slot has been released.",
+  "channel": "APP",
+  "relatedId": 1,
+  "relatedType": "APPOINTMENT",
+  "read": false,
+  "sentAt": "2026-04-22T10:02:00"
+}
 ```
 
 ---
 
-### 🧪 Swagger UI & Actuator
+### 4️⃣ Send a Payment Receipt Notification
+
+**`POST /notifications/send`**
 
 ```bash
-# Interactive Swagger UI
-open http://localhost:8086/swagger-ui.html
+curl -X POST http://localhost:8080/notifications/send \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
+  -d '{
+    "recipientId": 1,
+    "type": "PAYMENT",
+    "title": "Payment Successful",
+    "message": "Payment of ₹500 received for your appointment on 2026-05-15. Transaction ID: TXN20260422001.",
+    "channel": "APP",
+    "relatedId": 101,
+    "relatedType": "PAYMENT"
+  }'
+```
 
-# Actuator endpoints
-curl http://localhost:8086/actuator/health
-curl http://localhost:8086/actuator/metrics
-curl http://localhost:8086/actuator/info
+**Expected Response — 201 Created:**
+
+```json
+{
+  "notificationId": 4,
+  "recipientId": 1,
+  "type": "PAYMENT",
+  "title": "Payment Successful",
+  "message": "Payment of ₹500 received for your appointment on 2026-05-15. Transaction ID: TXN20260422001.",
+  "channel": "APP",
+  "relatedId": 101,
+  "relatedType": "PAYMENT",
+  "read": false,
+  "sentAt": "2026-04-22T10:03:00"
+}
 ```
 
 ---
+
+### 5️⃣ Send a Reminder Notification
+
+**`POST /notifications/send`**
+
+```bash
+curl -X POST http://localhost:8080/notifications/send \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
+  -d '{
+    "recipientId": 1,
+    "type": "REMINDER",
+    "title": "Appointment Tomorrow at 10:00 AM",
+    "message": "Reminder: You have an appointment with Dr. Sharma tomorrow at 10:00 AM. Please be on time.",
+    "channel": "APP",
+    "relatedId": 1,
+    "relatedType": "APPOINTMENT"
+  }'
+```
+
+**Expected Response — 201 Created:**
+
+```json
+{
+  "notificationId": 5,
+  "recipientId": 1,
+  "type": "REMINDER",
+  "title": "Appointment Tomorrow at 10:00 AM",
+  "message": "Reminder: You have an appointment with Dr. Sharma tomorrow at 10:00 AM. Please be on time.",
+  "channel": "APP",
+  "relatedId": 1,
+  "relatedType": "APPOINTMENT",
+  "read": false,
+  "sentAt": "2026-04-22T10:04:00"
+}
+```
+
+---
+
+### 6️⃣ Send Bulk Notification (Admin Announcement)
+
+**`POST /notifications/bulk`**
+
+Admin broadcasts a platform-wide announcement to multiple users at once. Internally loops and calls `send()` for each `recipientId`.
+
+```bash
+curl -X POST http://localhost:8080/notifications/bulk \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
+  -d '{
+    "recipientIds": [1, 2, 3, 4, 5],
+    "title": "Scheduled Maintenance — MediBook",
+    "message": "MediBook will be under maintenance on 2026-04-25 from 2:00 AM to 4:00 AM IST. We apologise for any inconvenience."
+  }'
+```
+
+**Expected Response — 200 OK:**
+
+```json
+{
+  "message": "Bulk notification sent to 5 users."
+}
+```
+
+> Each recipient gets an individual `ANNOUNCEMENT` type `APP` notification saved to their account.
+
+---
+
+### 7️⃣ Get All Notifications for a User
+
+**`GET /notifications/recipient/{recipientId}`**
+
+Returns all notifications for a user, ordered newest first. This powers the notification bell dropdown.
+
+```bash
+curl -X GET http://localhost:8080/notifications/recipient/1 \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+
+**Expected Response — 200 OK:**
+
+```json
+[
+  {
+    "notificationId": 5,
+    "recipientId": 1,
+    "type": "REMINDER",
+    "title": "Appointment Tomorrow at 10:00 AM",
+    "message": "Reminder: You have an appointment with Dr. Sharma tomorrow at 10:00 AM.",
+    "channel": "APP",
+    "relatedId": 1,
+    "relatedType": "APPOINTMENT",
+    "read": false,
+    "sentAt": "2026-04-22T10:04:00"
+  },
+  {
+    "notificationId": 4,
+    "recipientId": 1,
+    "type": "PAYMENT",
+    "title": "Payment Successful",
+    "message": "Payment of ₹500 received for your appointment on 2026-05-15.",
+    "channel": "APP",
+    "relatedId": 101,
+    "relatedType": "PAYMENT",
+    "read": false,
+    "sentAt": "2026-04-22T10:03:00"
+  },
+  {
+    "notificationId": 3,
+    "recipientId": 1,
+    "type": "CANCELLATION",
+    "title": "Appointment Cancelled",
+    "message": "Your appointment on 2026-05-15 at 10:00 AM has been cancelled.",
+    "channel": "APP",
+    "relatedId": 1,
+    "relatedType": "APPOINTMENT",
+    "read": true,
+    "sentAt": "2026-04-22T10:02:00"
+  }
+]
+```
+
+---
+
+### 8️⃣ Get Unread Notification Count (Bell Badge)
+
+**`GET /notifications/unread/count/{recipientId}`**
+
+Returns the count of unread notifications. Called on every page load to update the red badge number on the bell icon.
+
+```bash
+curl -X GET http://localhost:8080/notifications/unread/count/1 \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+
+**Expected Response — 200 OK:**
+
+```json
+{
+  "recipientId": 1,
+  "unreadCount": 4
+}
+```
+
+> When `unreadCount` is 0, the badge is hidden. When > 0, shown as a red number on the bell icon.
+
+---
+
+### 9️⃣ Mark a Single Notification as Read
+
+**`PUT /notifications/{notificationId}/read`**
+
+Patient clicks a notification — marks it as read. Badge count decrements by 1.
+
+```bash
+curl -X PUT http://localhost:8080/notifications/5/read \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+
+**Expected Response — 200 OK:**
+
+```json
+{
+  "message": "Notification marked as read."
+}
+```
+
+**Error if already read — 400 Bad Request:**
+
+```json
+{
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Notification is already marked as read.",
+  "timestamp": "2026-04-22T10:15:00"
+}
+```
+
+---
+
+### 🔟 Mark All Notifications as Read
+
+**`PUT /notifications/read/all/{recipientId}`**
+
+Patient clicks "Mark all as read." All notifications for this user are set to `isRead = true`. Badge count drops to 0.
+
+```bash
+curl -X PUT http://localhost:8080/notifications/read/all/1 \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+
+**Expected Response — 200 OK:**
+
+```json
+{
+  "message": "All notifications marked as read."
+}
+```
+
+---
+
+### 1️⃣1️⃣ Delete a Notification
+
+**`DELETE /notifications/{notificationId}`**
+
+Patient removes a notification from their list permanently.
+
+```bash
+curl -X DELETE http://localhost:8080/notifications/3 \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+
+**Expected Response — 200 OK:**
+
+```json
+{
+  "message": "Notification deleted."
+}
+```
+
+---
+
+### 1️⃣2️⃣ Get All Notifications (Admin Log)
+
+**`GET /notifications/all`**
+
+Admin views all notifications across all users, ordered newest first. Used for platform-level monitoring.
+
+```bash
+curl -X GET http://localhost:8080/notifications/all \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+```
+
+**Expected Response — 200 OK:**
+
+```json
+[
+  {
+    "notificationId": 5,
+    "recipientId": 1,
+    "type": "REMINDER",
+    "title": "Appointment Tomorrow at 10:00 AM",
+    "channel": "APP",
+    "read": false,
+    "sentAt": "2026-04-22T10:04:00"
+  },
+  {
+    "notificationId": 4,
+    "recipientId": 1,
+    "type": "PAYMENT",
+    "title": "Payment Successful",
+    "channel": "APP",
+    "read": false,
+    "sentAt": "2026-04-22T10:03:00"
+  }
+]
+```
+
+---
+
+### 1️⃣3️⃣ Simulate RabbitMQ BOOKED Event (End-to-End Test)
+
+This shows the full async flow from booking an appointment to receiving a notification.
+
+```bash
+# Step 1 — Book an appointment (triggers appointment-service to publish to RabbitMQ)
+curl -X POST http://localhost:8080/appointments/book \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>" \
+  -d '{
+    "patientId": 1,
+    "providerId": 1,
+    "patientEmail": "priya.patel@medibook.com",
+    "slotId": 5,
+    "serviceType": "General Consultation",
+    "appointmentDate": "2026-05-15",
+    "startTime": "10:00",
+    "endTime": "10:30",
+    "modeOfConsultation": "IN_PERSON"
+  }'
+
+# Step 2 — Confirm payment (triggers BOOKED event on RabbitMQ → notification-service consumes)
+curl -X PUT "http://localhost:8080/appointments/1/status?status=CONFIRMED" \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+
+# Step 3 — Check notification was auto-created (should see BOOKING notification)
+curl -X GET http://localhost:8080/notifications/recipient/1 \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+
+# Step 4 — Check badge count (should be > 0)
+curl -X GET http://localhost:8080/notifications/unread/count/1 \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+
+# Step 5 — Cancel appointment (triggers CANCELLED event → new notification)
+curl -X PUT http://localhost:8080/appointments/1/cancel \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+
+# Step 6 — Verify cancellation notification appeared
+curl -X GET http://localhost:8080/notifications/recipient/1 \
+  -H "Authorization: Bearer <PATIENT_TOKEN>"
+```
+
+---
+
+### 1️⃣4️⃣ Send Follow-Up Reminder (from Medical Records UC8)
+
+**`POST /notifications/send`**
+
+Medical record service can trigger follow-up reminders.
+
+```bash
+curl -X POST http://localhost:8080/notifications/send \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <YOUR_JWT_TOKEN>" \
+  -d '{
+    "recipientId": 1,
+    "type": "FOLLOWUP",
+    "title": "Follow-Up Reminder",
+    "message": "Dr. Sharma recommends a follow-up visit on 2026-06-15. Please book your appointment.",
+    "channel": "APP",
+    "relatedId": 1,
+    "relatedType": "RECORD"
+  }'
+```
+
+**Expected Response — 201 Created:**
+
+```json
+{
+  "notificationId": 10,
+  "recipientId": 1,
+  "type": "FOLLOWUP",
+  "title": "Follow-Up Reminder",
+  "message": "Dr. Sharma recommends a follow-up visit on 2026-06-15. Please book your appointment.",
+  "channel": "APP",
+  "relatedId": 1,
+  "relatedType": "RECORD",
+  "read": false,
+  "sentAt": "2026-04-22T11:00:00"
+}
+```
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+## ❌ Error Responses
+
+All errors are caught by `GlobalExceptionHandler` (`@ControllerAdvice`) and return:
+
+```json
+{
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Invalid channel. Allowed values: APP, EMAIL, SMS",
+  "timestamp": "2026-04-22T10:30:00"
+}
+```
+
+| HTTP Status | Scenario |
+|---|---|
+| `400` | Invalid `channel` or `type` value; already-read notification; empty bulk recipient list |
+| `401` | Missing or invalid JWT token (rejected at gateway) |
+| `403` | Insufficient role / forbidden access |
+| `404` | Notification not found for given ID |
+| `409` | Duplicate resource conflict |
+| `500` | Unexpected server error |
+
+**Common error messages:**
+
+| Scenario | Error Message |
+|---|---|
+| Invalid channel | `"Invalid channel. Allowed values: APP, EMAIL, SMS"` |
+| Invalid type | `"Invalid type."` |
+| Already marked read | `"Notification is already marked as read."` |
+| Empty recipient list | `"Recipient list cannot be empty."` |
+| Empty title | `"Title cannot be empty."` |
+| Empty message | `"Message cannot be empty."` |
+| Notification not found | `"Notification not found with id: <notificationId>"` |
+| Empty email | `"Recipient email cannot be empty."` |
+| Empty phone | `"Phone number cannot be empty."` |
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
 ## ⚙️ Environment Variables
 
-### Review Service
+| Variable | Required | Default (dev) | Description |
+|---|---|---|---|
+| `JWT_SECRET` | **Yes** | — | Must match `api-gateway` and `auth-service`. Strong Base64 (min 256-bit) |
+| `DB_USERNAME` | No | `medibook_user` | MySQL username |
+| `DB_PASSWORD` | No | `medibook_pass` | MySQL password |
+| `MAIL_USERNAME` | **Yes** (for email) | — | Your Gmail address (e.g., `yourapp@gmail.com`) |
+| `MAIL_PASSWORD` | **Yes** (for email) | — | Gmail App Password (16-char, NOT your account password) |
+| `EUREKA_DEFAULT_ZONE` | No | `http://admin:medibook123@localhost:8761/eureka/` | Eureka URL |
+| RabbitMQ host | No | `localhost` | `spring.rabbitmq.host` in `application.yml` |
+| RabbitMQ port | No | `5672` | `spring.rabbitmq.port` in `application.yml` |
+| RabbitMQ credentials | No | `guest / guest` | Default for local dev |
+| Email enabled | No | `true` | `notification.email.enabled` in `application.yml` |
+| SMS enabled | No | `false` | `notification.sms.enabled` in `application.yml` |
 
-| Variable | Default | Required | Description |
-|----------|---------|----------|-------------|
-| `JWT_SECRET` | — | ✅ Required | Must match across **all** services |
-| `DB_URL` | `jdbc:mysql://localhost:3306/review_db` | ⬜ Optional | Full JDBC connection URL |
-| `DB_USERNAME` | `medibook_user` | ⬜ Optional | MySQL username |
-| `DB_PASSWORD` | `medibook_pass` | ⬜ Optional | MySQL password |
-| `EUREKA_DEFAULT_ZONE` | `http://admin:medibook123@localhost:8761/eureka/` | ⬜ Optional | Eureka server URL |
+**Export in bash:**
 
-### Auth Service (Additional)
+```bash
+export JWT_SECRET="myVeryStrongBase64SecretKeyForMediBookThatIs256BitsLong"
+export DB_USERNAME="medibook_user"
+export DB_PASSWORD="medibook_pass"
+export MAIL_USERNAME="yourapp@gmail.com"
+export MAIL_PASSWORD="abcd efgh ijkl mnop"   # Gmail App Password (with spaces is OK)
+```
 
-| Variable | Description |
-|----------|-------------|
-| `MAIL_HOST` | SMTP host (default: `smtp.gmail.com`) |
-| `MAIL_PORT` | SMTP port (default: `587`) |
-| `MAIL_USERNAME` | Gmail address for sending OTP emails |
-| `MAIL_PASSWORD` | Gmail **App Password** (not account password) |
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
----
+## 🚀 Running the Services
 
-## 🚀 Quick Start
+### Prerequisites
 
-### 1. Database Setup
+- Java 17+
+- Maven 3.8+
+- MySQL 8 running locally
+- RabbitMQ running locally
+- Gmail account with App Password configured
+- All upstream services running (Eureka → Gateway → Auth → Provider → Schedule → Appointment)
+
+### Start RabbitMQ via Docker
+
+```bash
+docker run -d \
+  --name rabbitmq \
+  -p 5672:5672 \
+  -p 15672:15672 \
+  rabbitmq:3-management
+```
+
+RabbitMQ Management UI: `http://localhost:15672` (guest / guest)
+
+You can verify the 3 queues (`medibook.appointment.booked`, `medibook.appointment.cancelled`, `medibook.appointment.completed`) appear here after both `appointment-service` and `notification-service` start.
+
+### Startup Order
+
+```bash
+# 1. Eureka Server — MUST be first
+cd eureka-server && mvn spring-boot:run
+
+# 2. API Gateway — MUST be second
+cd api-gateway && JWT_SECRET=<secret> mvn spring-boot:run
+
+# 3. Auth Service
+cd auth-service && JWT_SECRET=<secret> mvn spring-boot:run
+
+# 4. Provider Service
+cd provider-service && JWT_SECRET=<secret> mvn spring-boot:run
+
+# 5. Schedule Service
+cd schedule-service && JWT_SECRET=<secret> mvn spring-boot:run
+
+# 6. Appointment Service (RabbitMQ PUBLISHER — creates queues)
+cd appointment-service && JWT_SECRET=<secret> mvn spring-boot:run
+
+# 7. Notification Service — THIS SERVICE (RabbitMQ CONSUMER)
+cd notification-service \
+  && JWT_SECRET=<secret> \
+  && MAIL_USERNAME=<gmail> \
+  && MAIL_PASSWORD=<app-password> \
+  mvn spring-boot:run
+```
+
+### Build and Run as JAR
+
+```bash
+cd notification-service
+mvn clean package -DskipTests
+
+java -jar target/notification-service-1.0.0.jar \
+  --jwt.secret=<JWT_SECRET> \
+  --spring.datasource.username=medibook_user \
+  --spring.datasource.password=medibook_pass \
+  --spring.mail.username=yourapp@gmail.com \
+  --spring.mail.password="abcd efgh ijkl mnop"
+```
+
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+
+## 🗄️ Database Setup
 
 ```sql
-CREATE USER 'medibook_user'@'localhost' IDENTIFIED BY 'medibook_pass';
-GRANT ALL PRIVILEGES ON *.* TO 'medibook_user'@'localhost';
+-- Create all required databases
+CREATE DATABASE IF NOT EXISTS notification_db;
+CREATE DATABASE IF NOT EXISTS appointment_db;
+CREATE DATABASE IF NOT EXISTS auth_db;
+CREATE DATABASE IF NOT EXISTS provider_db;
+CREATE DATABASE IF NOT EXISTS schedule_db;
+
+-- Create shared user
+CREATE USER IF NOT EXISTS 'medibook_user'@'localhost' IDENTIFIED BY 'medibook_pass';
+
+-- Grant permissions
+GRANT ALL PRIVILEGES ON notification_db.* TO 'medibook_user'@'localhost';
+GRANT ALL PRIVILEGES ON appointment_db.*  TO 'medibook_user'@'localhost';
+GRANT ALL PRIVILEGES ON auth_db.*         TO 'medibook_user'@'localhost';
+GRANT ALL PRIVILEGES ON provider_db.*     TO 'medibook_user'@'localhost';
+GRANT ALL PRIVILEGES ON schedule_db.*     TO 'medibook_user'@'localhost';
+
 FLUSH PRIVILEGES;
--- review_db auto-created by Spring (createDatabaseIfNotExist=true in JDBC URL)
 ```
 
-### 2. Startup Order
+Hibernate `ddl-auto: update` auto-creates the `notifications` table on first startup.
 
-```bash
-# 1️⃣  Eureka Server FIRST
-cd eureka-server       && mvn spring-boot:run
+**Expected table:**
 
-# 2️⃣  API Gateway SECOND
-cd api-gateway         && mvn spring-boot:run
-
-# 3️⃣  All other services
-cd auth-service        && mvn spring-boot:run &
-cd provider-service    && mvn spring-boot:run &
-cd schedule-service    && mvn spring-boot:run &
-cd appointment-service && mvn spring-boot:run &
-cd payment-service     && mvn spring-boot:run &
-cd review-service      && mvn spring-boot:run &
+```sql
+CREATE TABLE notifications (
+  notification_id  INT AUTO_INCREMENT PRIMARY KEY,
+  recipient_id     INT           NOT NULL,
+  type             VARCHAR(50)   NOT NULL,
+  title            VARCHAR(255)  NOT NULL,
+  message          VARCHAR(1000) NOT NULL,
+  channel          VARCHAR(20)   NOT NULL,
+  related_id       INT           DEFAULT 0,
+  related_type     VARCHAR(50),
+  is_read          TINYINT(1)    NOT NULL DEFAULT 0,
+  sent_at          DATETIME      NOT NULL
+);
 ```
 
-### 3. Port Reference
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
-| Service | Port | URL |
-|---------|------|-----|
-| 🔍 Eureka Server | `8761` | http://localhost:8761 — `admin / medibook123` |
-| 🌐 API Gateway | `8080` | http://localhost:8080 |
-| 🔑 Auth Service | `8081` | http://localhost:8081 |
-| 👨‍⚕️ Provider Service | `8082` | http://localhost:8082 |
-| 📅 Schedule Service | `8083` | http://localhost:8083 |
-| 🏥 Appointment Service | `8084` | http://localhost:8084 |
-| 💳 Payment Service | `8085` | http://localhost:8085 |
-| ⭐ **Review Service** ★ | **`8086`** | http://localhost:8086 · Swagger: `/swagger-ui.html` · Actuator: `/actuator/health` |
+## 📖 Swagger UI
 
-### 4. Build
+Direct access to each service's Swagger UI (bypasses gateway):
 
-```bash
-# All modules
-mvn clean install -DskipTests
+| Service | Swagger URL |
+|---|---|
+| **notification-service** | http://localhost:8087/swagger-ui.html |
+| appointment-service | http://localhost:8084/swagger-ui.html |
+| schedule-service | http://localhost:8083/swagger-ui.html |
+| auth-service | http://localhost:8081/swagger-ui.html |
+| provider-service | http://localhost:8082/swagger-ui.html |
 
-# Review service only
-cd review-service && mvn clean package -DskipTests
-```
+OpenAPI JSON docs available at `/api-docs` on each service.
 
----
-
-## 📁 Project Structure
-
-```
-MediBook-Microservices/
-├── pom.xml
-├── eureka-server/
-├── api-gateway/
-├── auth-service/
-├── provider-service/
-├── schedule-service/
-├── appointment-service/
-├── payment-service/
-└── review-service/                ← UC6 ⭐
-    └── src/main/java/com/medibook/review/
-        ├── resource/              ← ReviewResource (REST)
-        ├── service/               ← ReviewService + ReviewServiceImpl
-        ├── entity/                ← Review entity
-        ├── dto/request/           ← ReviewRequest, AppointmentDto
-        ├── repository/            ← ReviewRepository (JPA)
-        ├── client/                ← AppointmentClient, ProviderClient (Feign ×2)
-        ├── config/                ← SecurityConfig
-        └── exception/             ← GlobalExceptionHandler + custom exceptions
-```
-
----
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
 ## Author👨‍💻
 
@@ -557,16 +1230,19 @@ MediBook-Microservices/
 B.Tech - `[Computer Science & Engineering]`  
 Java | Spring Boot | Spring Security | JWT | MySQL | Clean Architecture
 
----
+<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
 
 <div align="center">
 
-**MediBook Microservices** · `feature/UC6-review-service`
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:24243e,50:302b63,100:0f0c29&height=120&section=footer" width="100%"/>
 
-Spring Boot 3.2 · Java 17 · MySQL · Spring Cloud Eureka · Feign ×2 · JWT
+**MediBook Microservices — UC7 Notification Service**
 
-★★★★★
+`@RabbitListener` · `JavaMailSender` · `APP | EMAIL | SMS` · Spring Boot 3.2 · Java 17
 
-[![Made with Spring](https://img.shields.io/badge/Made%20with-Spring%20Boot-6DB33F?style=flat-square&logo=springboot)](https://spring.io)
+![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
+![UC7](https://img.shields.io/badge/Feature-UC7_Notification-blueviolet?style=flat-square)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ-Consumer-FF6600?style=flat-square&logo=rabbitmq)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2.0-6DB33F?style=flat-square&logo=springboot)
 
 </div>
