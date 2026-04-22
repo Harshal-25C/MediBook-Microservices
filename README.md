@@ -2,11 +2,6 @@
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f0c29,50:302b63,100:24243e&height=220&section=header&text=🔔%20MediBook%20Notification%20Service&fontSize=38&fontColor=ffffff&animation=fadeIn&fontAlignY=40&desc=UC7%20·%20RabbitMQ%20Consumer%20·%20Email%20·%20In-App%20·%20Spring%20Boot%203.2&descAlignY=60&descAlign=50" width="100%"/>
 
-<br/>
-
-<a href="#">
-  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&size=20&duration=2800&pause=900&color=A78BFA&center=true&vCenter=true&multiline=true&width=700&height=70&lines=Consume+RabbitMQ+Events+→+Store+In-App+Alerts;Send+Emails+via+Gmail+SMTP+·+Smart+Badge+Count;BOOKING+·+CANCELLATION+·+PAYMENT+·+REMINDER" alt="Typing SVG" />
-</a>
 
 <br/>
 
