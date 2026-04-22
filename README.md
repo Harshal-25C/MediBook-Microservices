@@ -1,18 +1,21 @@
 <div align="center">
 
-# 💳 MediBook — Payment Service
+# ⭐ MediBook — Review Service
 
-### `feature/UC5-payment-service`
+### `feature/UC6-review-service`
 
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.0-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Java](https://img.shields.io/badge/Java-17-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
-[![Razorpay](https://img.shields.io/badge/Razorpay-Ready-02042B?style=for-the-badge&logo=razorpay&logoColor=white)](https://razorpay.com/)
+[![Feign](https://img.shields.io/badge/Feign-Clients_×2-00C7B7?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud-openfeign)
 [![Spring Security](https://img.shields.io/badge/Spring%20Security-JWT-6DB33F?style=for-the-badge&logo=springsecurity&logoColor=white)](https://spring.io/projects/spring-security)
-[![Eureka](https://img.shields.io/badge/Eureka-Service%20Discovery-blue?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud-netflix)
+[![Eureka](https://img.shields.io/badge/Eureka-Discovery-blue?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud-netflix)
+[![Actuator](https://img.shields.io/badge/Actuator-Health_%2F_Metrics-brightgreen?style=for-the-badge&logo=spring&logoColor=white)](https://docs.spring.io/spring-boot/docs/current/actuator-api/)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
-> **UC5** · Razorpay-Ready Payment Engine · HMAC-SHA256 Verification · Full Refund Support · Revenue Analytics
+> **UC6** · Doctor Rating Engine · Anonymous Reviews · Auto avgRating Sync · 2 Feign Clients
+
+★★★★★
 
 </div>
 
@@ -25,10 +28,10 @@
 | 01 | [Project Overview](#-project-overview) |
 | 02 | [System Architecture](#-system-architecture) |
 | 03 | [All Microservices](#-all-microservices) |
-| 04 | [Payment Service Deep Dive](#-payment-service-deep-dive) |
+| 04 | [Review Service Deep Dive](#-review-service-deep-dive) |
 | 05 | [API Reference](#-api-reference) |
-| 06 | [Payment Flow](#-payment-flow) |
-| 07 | [Status Lifecycle](#-payment-status-lifecycle) |
+| 06 | [Review Submission Flow](#-review-submission-flow) |
+| 07 | [Star Rating System](#-star-rating-system) |
 | 08 | [API Testing Guide](#-api-testing-guide) |
 | 09 | [Environment Variables](#-environment-variables) |
 | 10 | [Quick Start](#-quick-start) |
@@ -37,17 +40,13 @@
 
 ## 🏥 Project Overview
 
-**MediBook** is an Online Appointment Booking System built as a distributed microservices platform using Spring Boot, Spring Cloud, and Spring Security. It enables patients to book appointments with healthcare providers, manage slots, process payments, and receive notifications — all orchestrated through an API Gateway with JWT authentication.
+**MediBook** is an Online Appointment Booking System built as a distributed microservices platform using Spring Boot, Spring Cloud, and Spring Security. Patients book appointments with healthcare providers, manage time slots, process payments, and submit post-appointment reviews — all coordinated through an API Gateway with JWT authentication.
 
-The **UC5 Payment Service** is the financial backbone of the platform. It handles the complete payment lifecycle:
+The **UC6 Review Service** is the reputation engine of the platform. It enables patients to submit star ratings and written feedback after completed appointments, with full anonymous support. Every new review automatically recalculates and pushes the updated average rating to `provider-service` via Feign — keeping doctor profiles accurate in real time.
 
-- ✅ Payment initiation via **Razorpay SDK**
-- ✅ **HMAC-SHA256** signature verification
-- ✅ Automated **refund processing**
-- ✅ Revenue **analytics** for admins
-- ✅ **Gateway-agnostic architecture** — zero breaking changes when switching payment providers
+> ⭐ **Key Design Constraint:** Reviews are gated behind `COMPLETED` appointment status. The service makes a Feign call to `appointment-service` to verify this before allowing submission — preventing reviews for no-shows or pending appointments.
 
-> 💡 **Design Principle:** The `PaymentService` interface is the stable contract. `PaymentServiceImpl` is the swappable implementation. The controller depends only on the interface — switching from mock to real Razorpay requires **zero controller changes**.
+> 🔄 **Auto Rating Sync:** Every submit, update, and delete triggers `updateDoctorRating()` which recalculates the provider average using `AVG(rating)` and immediately calls `PUT /providers/{id}/rating` on `provider-service` via Feign.
 
 ---
 
@@ -56,387 +55,350 @@ The **UC5 Payment Service** is the financial backbone of the platform. It handle
 ```mermaid
 graph TD
     FE["🖥️ React Frontend\n:5173"]
-    GW["🌐 API Gateway\n:8080\nJWT Filter + Routing"]
-    AUTH["🔑 Auth Service\n:8081"]
-    PROV["👨‍⚕️ Provider Service\n:8082"]
-    SCHED["📅 Schedule Service\n:8083"]
-    APPT["🏥 Appointment Service\n:8084\nRabbitMQ Publisher"]
-    PAY["💳 Payment Service\n:8085\nRazorpay SDK"]
-    EUR["🔍 Eureka Server\n:8761"]
-    MQ["🐇 RabbitMQ\n:5672"]
-    DB_AUTH[("auth_db")]
-    DB_PAY[("payment_db")]
+    GW["🌐 API Gateway :8080\nJWT Filter + Routing"]
+    AUTH["🔑 Auth Service :8081"]
+    PROV["👨‍⚕️ Provider Service :8082\nstores avgRating"]
+    SCHED["📅 Schedule Service :8083"]
+    APPT["🏥 Appointment Service :8084\nstatus: COMPLETED?"]
+    PAY["💳 Payment Service :8085"]
+    REV["⭐ Review Service :8086\nFeign × 2"]
+    EUR["🔍 Eureka Server :8761"]
+    DB[("review_db\nMySQL")]
 
-    FE -->|HTTP| GW
-    GW -->|/auth/**| AUTH
+    FE -->|HTTP + JWT| GW
+    GW -->|/reviews/**| REV
     GW -->|/providers/**| PROV
-    GW -->|/slots/**| SCHED
     GW -->|/appointments/**| APPT
+    GW -->|/auth/**| AUTH
     GW -->|/payments/**| PAY
-    PAY -->|Feign: GET /appointments/id| APPT
-    APPT -->|publishes events| MQ
-    AUTH --- DB_AUTH
-    PAY --- DB_PAY
+    GW -->|/slots/**| SCHED
+    REV -->|"Feign: GET /appointments/{id}"| APPT
+    REV -->|"Feign: PUT /providers/{id}/rating"| PROV
+    REV --- DB
     AUTH -.->|registers| EUR
     GW -.->|registers| EUR
-    PAY -.->|registers| EUR
+    REV -.->|registers| EUR
     APPT -.->|registers| EUR
+    PROV -.->|registers| EUR
 ```
 
 ---
 
 ## 🧩 All Microservices
 
-| Service | Port | Database | Key Technologies | Description |
-|---------|------|----------|-----------------|-------------|
-| 🔍 **Eureka Server** | `8761` | — | Spring Eureka | Service discovery hub. **Start this first.** |
-| 🌐 **API Gateway** | `8080` | — | Spring Cloud Gateway, JWT | Single entry point. Routes all traffic. CORS for `:5173`. |
-| 🔑 **Auth Service** | `8081` | `auth_db` | Spring Security, JWT, SMTP | Registration, login, token generation. Roles: PATIENT, DOCTOR, ADMIN. |
-| 👨‍⚕️ **Provider Service** | `8082` | `provider_db` | JPA | Doctor/provider profile management. Specialty, bio, fees. |
-| 📅 **Schedule Service** | `8083` | `schedule_db` | JPA, Slot Locking | Time-slot management. Create and book available slots. |
-| 🏥 **Appointment Service** | `8084` | `appointment_db` | Feign, RabbitMQ | Core booking engine. Manages appointment lifecycle. No-show scheduler. |
-| 💳 **Payment Service** ⭐ | `8085` | `payment_db` | Razorpay SDK, Feign, HMAC | **UC5 — This service.** Full payment lifecycle. |
+| Service | Port | Key Tech | Description |
+|---------|------|----------|-------------|
+| 🔍 **Eureka Server** | `8761` | Spring Eureka | Service discovery. **Start this first.** Credentials: `admin / medibook123` |
+| 🌐 **API Gateway** | `8080` | Spring Cloud Gateway, JWT | Single entry point. Routes all traffic. CORS for `:5173` & `:5174`. |
+| 🔑 **Auth Service** | `8081` | Spring Security, JWT, SMTP | Registration, login, token generation. Roles: `PATIENT`, `DOCTOR`, `ADMIN`. |
+| 👨‍⚕️ **Provider Service** | `8082` | JPA, Feign target | Doctor profile management. Stores `avgRating`. Exposes `PUT /providers/{id}/rating`. |
+| 📅 **Schedule Service** | `8083` | JPA | Time-slot management. Create & book available slots with locking. |
+| 🏥 **Appointment Service** | `8084` | Feign, RabbitMQ | Core booking engine. `SCHEDULED → COMPLETED → CANCELLED`. Feign target for review-service. |
+| 💳 **Payment Service** | `8085` | Razorpay SDK, HMAC | UC5 — Razorpay-ready payment engine. Initiation, verification, refunds. |
+| ⭐ **Review Service** ★ | `8086` | Feign ×2, Actuator | **UC6 — This service.** Star ratings, anonymous reviews, auto avgRating sync. |
 
 ---
 
-## 💳 Payment Service Deep Dive
+## ⭐ Review Service Deep Dive
 
-### 📦 Entity: `Payment`
+### 📦 Entity: `Review`
 
-Maps to the `payments` MySQL table. Every transaction — successful or failed — creates a permanent record for audit trail compliance.
+Maps to the `reviews` MySQL table. `@UniqueConstraint` on `appointment_id` enforces one review per appointment at the database level.
 
 | Field | Type | Constraint | Description |
 |-------|------|-----------|-------------|
-| `paymentId` | INT | PK, AUTO | Primary key, auto-generated |
-| `appointmentId` | INT | UNIQUE, NOT NULL | One payment per appointment |
+| `reviewId` | INT | PK, AUTO | Primary key, auto-generated |
+| `appointmentId` | INT | UNIQUE, NOT NULL | One review per appointment — DB enforced |
 | `patientId` | INT | NOT NULL | Links to auth-service user |
-| `amount` | DOUBLE | NOT NULL | Amount in ₹ (rupees) |
-| `currency` | VARCHAR | NOT NULL | Default: `INR` |
-| `paymentMethod` | VARCHAR | NOT NULL | `CARD` / `UPI` / `NETBANKING` / `WALLET` |
-| `status` | VARCHAR | NOT NULL | `PENDING` / `SUCCESS` / `FAILED` / `REFUNDED` |
-| `razorpayOrderId` | VARCHAR | — | Razorpay order ID (or `MOCK_ORDER_N`) |
-| `razorpayPaymentId` | VARCHAR | — | Razorpay payment ID after completion |
-| `razorpaySignature` | VARCHAR | — | HMAC-SHA256 verification hash |
+| `providerId` | INT | NOT NULL | Links to provider-service — used for rating recalc |
+| `rating` | INT | NOT NULL | 1 to 5 stars — validated in DTO + service layer |
+| `comment` | TEXT | NULLABLE | Optional written feedback from patient |
+| `isAnonymous` | BOOLEAN | NOT NULL, default `false` | `true` → display as "Anonymous Patient" |
 | `createdAt` | DATETIME | NOT NULL, immutable | Auto-set on `@PrePersist` |
 | `updatedAt` | DATETIME | — | Auto-set on `@PreUpdate` |
-| `notes` | TEXT | — | System-generated audit notes |
 
-### 🔌 Service Interface: `PaymentService`
+### 🔌 Service Interface: `ReviewService`
 
 ```java
-public interface PaymentService {
-    PaymentResponse initiatePayment(PaymentRequest request);
-    PaymentResponse verifyPayment(String orderId, String paymentId, String signature);
-    PaymentResponse getPaymentByAppointment(int appointmentId);
-    PaymentResponse getPaymentById(int paymentId);
-    List<Payment> getPaymentsByPatient(int patientId);
-    PaymentResponse initiateRefund(int paymentId);
-    List<Payment> getPaymentsByStatus(String status);
-    List<Payment> getPaymentsByProvider(int providerId);
-    double getTotalRevenue();
-    void updatePaymentStatus(int paymentId, String status);
+public interface ReviewService {
+    Review submitReview(ReviewRequest request);
+    List<Review> getReviewsByProvider(int providerId);
+    List<Review> getReviewsByPatient(int patientId);
+    Review getReviewById(int reviewId);
+    Review updateReview(int reviewId, ReviewRequest request);
+    void deleteReview(int reviewId);
+    double getAverageRating(int providerId);
+    long getReviewCount(int providerId);
 }
 ```
 
-### 🔗 Feign Client: `AppointmentClient`
-
-Payment service verifies appointment status before processing payment via a Feign call to `appointment-service`:
+### 🔗 Two Feign Clients
 
 ```java
+// 1. Validates appointment status before allowing review submission
 @FeignClient(name = "appointment-service")
 public interface AppointmentClient {
     @GetMapping("/appointments/{appointmentId}")
     AppointmentDto getById(@PathVariable int appointmentId);
 }
+
+// 2. Auto-syncs avgRating to provider-service after every review change
+@FeignClient(name = "provider-service")
+public interface ProviderClient {
+    @PutMapping("/providers/{providerId}/rating")
+    void updateRating(@PathVariable int providerId,
+                      @RequestParam double avgRating);
+}
 ```
 
-### 🗄️ Repository: Key Queries
+### 🗄️ Key Repository Queries
 
 ```java
-// Find payment for an appointment
-Optional<Payment> findByAppointmentId(int appointmentId);
+// All reviews for a doctor — newest first
+List<Review> findByProviderIdOrderByCreatedAtDesc(int providerId);
 
-// Find by Razorpay order ID (used during verification)
-Optional<Payment> findByRazorpayOrderId(String razorpayOrderId);
+// Calculate average rating (called after every write operation)
+@Query("SELECT AVG(r.rating) FROM Review r WHERE r.providerId = :providerId")
+Double calculateAverageRatingByProviderId(@Param("providerId") int providerId);
 
-// Calculate total revenue from successful payments
-@Query("SELECT SUM(p.amount) FROM Payment p WHERE p.status = 'SUCCESS'")
-Double calculateTotalRevenue();
+// Count for doctor profile: "150 reviews"
+long countByProviderId(int providerId);
 
-// Payments by provider (native SQL JOIN)
-@Query(value = "SELECT p.* FROM payments p " +
-       "JOIN appointments a ON p.appointment_id = a.appointment_id " +
-       "WHERE a.provider_id = :providerId ORDER BY p.created_at DESC",
-       nativeQuery = true)
-List<Payment> findPaymentsByProvider(@Param("providerId") int providerId);
+// Duplicate check — one review per appointment
+Optional<Review> findByAppointmentId(int appointmentId);
+
+// Filter by star rating (admin moderation / patient filtering)
+List<Review> findByProviderIdAndRating(int providerId, int rating);
+```
+
+### ⚙️ Auto Rating Recalculation
+
+```java
+// Triggered automatically after EVERY write: submit, update, delete
+private void updateDoctorRating(int providerId) {
+    double newAvg = getAverageRating(providerId);      // SQL AVG query
+    providerClient.updateRating(providerId, newAvg);   // Feign PUT call
+}
+
+public double getAverageRating(int providerId) {
+    Double avg = reviewRepository.calculateAverageRatingByProviderId(providerId);
+    return avg != null ? Math.round(avg * 10.0) / 10.0 : 0.0;
+    // Rounded to 1 decimal place: 4.6667 → 4.7
+}
 ```
 
 ---
 
 ## 📡 API Reference
 
-> **Base URL (via Gateway):** `http://localhost:8080/payments`
-> **Direct URL:** `http://localhost:8085/payments`
-> **Swagger UI:** `http://localhost:8085/swagger-ui.html`
+> **Base URL (via Gateway):** `http://localhost:8080/reviews`
+> **Direct URL:** `http://localhost:8086/reviews`
+> **Swagger UI:** `http://localhost:8086/swagger-ui.html`
+> **Actuator:** `http://localhost:8086/actuator/health`
 >
 > All endpoints require: `Authorization: Bearer <JWT_TOKEN>`
 
-### Core Payment Operations
+### Patient Operations
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `POST` | `/payments/initiate` | 🔐 JWT | Initiate payment — creates Razorpay order |
-| `POST` | `/payments/verify` | 🔐 JWT | Verify payment signature → set SUCCESS/FAILED |
-| `POST` | `/payments/{paymentId}/refund` | 🔐 Admin | Initiate refund for a successful payment |
+| Method | Endpoint | Status | Description |
+|--------|----------|--------|-------------|
+| `POST` | `/reviews/submit` | 201 | Submit new review — requires COMPLETED appointment |
+| `PUT` | `/reviews/{reviewId}` | 200 | Edit review — updates rating, comment, anonymous flag |
 
 ### Query Endpoints
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/payments/appointment/{appointmentId}` | 🔐 JWT | Get payment by appointment ID |
-| `GET` | `/payments/{paymentId}` | 🔐 JWT | Get payment by payment ID |
-| `GET` | `/payments/patient/{patientId}` | 🔐 JWT | Get all payments for a patient |
-| `GET` | `/payments/provider/{providerId}` | 🔐 Admin | Get all payments for a provider |
-| `GET` | `/payments/status?status=SUCCESS` | 🔐 Admin | Filter payments by status |
-| `GET` | `/payments/revenue/total` | 🔐 Admin | Total revenue from all SUCCESS payments |
+| Method | Endpoint | Status | Description |
+|--------|----------|--------|-------------|
+| `GET` | `/reviews/provider/{providerId}` | 200 | All reviews for a doctor (newest first) |
+| `GET` | `/reviews/provider/{providerId}/average` | 200 | Average star rating for a doctor |
+| `GET` | `/reviews/provider/{providerId}/count` | 200 | Total review count for a doctor |
+| `GET` | `/reviews/patient/{patientId}` | 200 | All reviews submitted by a patient |
+| `GET` | `/reviews/{reviewId}` | 200 | Single review by ID |
 
 ### Admin Operations
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `PUT` | `/payments/{paymentId}/status?status=SUCCESS` | 🔐 Admin | Manually update payment status |
+| Method | Endpoint | Status | Description |
+|--------|----------|--------|-------------|
+| `DELETE` | `/reviews/{reviewId}` | 200 | Delete review — triggers avgRating recalculation |
 
 ---
 
-## 🔄 Payment Flow
+## 🔄 Review Submission Flow
 
 ```mermaid
 sequenceDiagram
     actor Patient
-    participant Gateway as API Gateway :8080
-    participant PaySvc as Payment Service :8085
+    participant GW as API Gateway :8080
+    participant RevSvc as Review Service :8086
     participant ApptSvc as Appointment Service :8084
-    participant Razorpay as Razorpay API
+    participant ProvSvc as Provider Service :8082
+    participant DB as review_db (MySQL)
 
-    Patient->>Gateway: POST /payments/initiate
-    Gateway->>PaySvc: Forward + JWT validation
-    PaySvc->>ApptSvc: Feign: GET /appointments/{id}
-    ApptSvc-->>PaySvc: Appointment{status: SCHEDULED}
-    PaySvc->>Razorpay: Create Order (amount, currency)
-    Razorpay-->>PaySvc: orderId: order_XYZ123
-    PaySvc-->>Patient: 201 Created {orderId, status: PENDING}
+    Patient->>GW: POST /reviews/submit + JWT
+    GW->>RevSvc: JWT validated, forward request
+    RevSvc->>ApptSvc: Feign: GET /appointments/{id}
+    ApptSvc-->>RevSvc: AppointmentDto {status: "COMPLETED"}
 
-    Note over Patient,Razorpay: Patient completes payment in Razorpay popup
-
-    Patient->>Gateway: POST /payments/verify
-    Gateway->>PaySvc: {orderId, paymentId, signature}
-    PaySvc->>PaySvc: HMAC-SHA256 verify signature
-    alt Signature Valid
-        PaySvc-->>Patient: 200 OK {status: SUCCESS}
-    else Signature Invalid
-        PaySvc-->>Patient: 400 Bad Request {status: FAILED}
+    alt Status not COMPLETED
+        RevSvc-->>Patient: 400 Bad Request
     end
 
-    Note over Patient,PaySvc: On appointment cancellation
+    RevSvc->>DB: findByAppointmentId() duplicate check
+    alt Review already exists
+        RevSvc-->>Patient: 409 Conflict
+    end
 
-    Patient->>Gateway: POST /payments/{id}/refund
-    Gateway->>PaySvc: Forward
-    PaySvc->>Razorpay: Refund API call
-    Razorpay-->>PaySvc: Refund processed
-    PaySvc-->>Patient: 200 OK {status: REFUNDED}
+    RevSvc->>DB: save(Review) with @PrePersist timestamps
+    DB-->>RevSvc: Review saved
+
+    RevSvc->>DB: calculateAverageRatingByProviderId()
+    DB-->>RevSvc: AVG = 4.7
+
+    RevSvc->>ProvSvc: Feign: PUT /providers/{id}/rating?avgRating=4.7
+    ProvSvc-->>RevSvc: 200 OK
+
+    RevSvc-->>Patient: 201 Created with Review object
 ```
 
 ---
 
-## 📊 Payment Status Lifecycle
+## ⭐ Star Rating System
 
-```mermaid
-stateDiagram-v2
-    [*] --> PENDING : initiatePayment()
-    PENDING --> SUCCESS : verifyPayment() — valid HMAC signature
-    PENDING --> FAILED : verifyPayment() — invalid signature
-    SUCCESS --> REFUNDED : initiateRefund() — appointment cancelled
-    FAILED --> [*] : Patient must retry
-    REFUNDED --> [*] : Terminal state
-```
+| Stars | Value | Label |
+|-------|-------|-------|
+| ★☆☆☆☆ | 1 | Very Poor |
+| ★★☆☆☆ | 2 | Poor |
+| ★★★☆☆ | 3 | Average |
+| ★★★★☆ | 4 | Good |
+| ★★★★★ | 5 | Excellent |
 
-| Status | Trigger | Can Transition To | Description |
-|--------|---------|------------------|-------------|
-| `PENDING` | `initiatePayment()` | SUCCESS, FAILED | Order created, awaiting patient |
-| `SUCCESS` | `verifyPayment()` — valid | REFUNDED | Payment confirmed, appointment active |
-| `FAILED` | `verifyPayment()` — invalid | — | Payment tampered or declined |
-| `REFUNDED` | `initiateRefund()` | — | Money returned after cancellation |
+> ⚠️ **Business Rules:** Rating must be 1–5 (validated by `@Min(1) @Max(5)` in DTO and again in service). Appointment must be `COMPLETED` (verified via Feign). One review per appointment (unique DB constraint + service-level check). Every write auto-syncs provider `avgRating`.
 
 ---
 
 ## 🧪 API Testing Guide
 
-> ⚠️ **Prerequisites:** All services running · MySQL up · Valid JWT token from auth-service
+> ⚠️ **Prerequisites:** All services running · MySQL up · An appointment with status `COMPLETED` exists · Valid JWT token
 
-### Step 1 — Obtain JWT Token
+### Step 1 — Get JWT Token
 
 ```bash
-# Register a patient
+# Register patient
 curl -X POST http://localhost:8080/auth/register \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "Test Patient",
-    "email": "patient@test.com",
-    "password": "Password@123",
-    "role": "PATIENT"
-  }'
+  -d '{"name":"Test Patient","email":"patient@test.com","password":"Password@123","role":"PATIENT"}'
 
-# Login → copy the token from response
+# Login → save token
 curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"patient@test.com","password":"Password@123"}'
 
-# Save token for reuse
 TOKEN="eyJhbGciOiJIUzI1NiJ9..."
 ```
 
 ---
 
-### Step 2 — Initiate Payment
+### Step 2 — Submit Reviews
 
 ```bash
-curl -X POST http://localhost:8080/payments/initiate \
+# 5-star named review
+curl -X POST http://localhost:8080/reviews/submit \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
-    "appointmentId": 5,
+    "appointmentId": 7,
     "patientId": 12,
-    "amount": 500.00,
-    "paymentMethod": "UPI",
-    "currency": "INR"
+    "providerId": 3,
+    "rating": 5,
+    "comment": "Excellent consultation. Very professional.",
+    "isAnonymous": false
   }'
-```
 
-**✅ 201 Created Response:**
-```json
-{
-  "paymentId": 1,
-  "appointmentId": 5,
-  "status": "PENDING",
-  "amount": 500.0,
-  "currency": "INR",
-  "paymentMethod": "UPI",
-  "razorpayOrderId": "order_NiXe5u3kZ9XYAB",
-  "razorpayPaymentId": null,
-  "message": "Order created. Complete payment in popup.",
-  "transactionTime": "2026-04-22 10:30:00"
-}
-```
-
----
-
-### Step 3 — Verify Payment
-
-```bash
-# Real Razorpay mode
-curl -X POST http://localhost:8080/payments/verify \
+# 3-star anonymous review
+curl -X POST http://localhost:8080/reviews/submit \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
-    "razorpayOrderId": "order_NiXe5u3kZ9XYAB",
-    "razorpayPaymentId": "pay_ABC123XYZ456",
-    "razorpaySignature": "<hmac_sha256_signature>"
+    "appointmentId": 8,
+    "patientId": 12,
+    "providerId": 3,
+    "rating": 3,
+    "comment": "Average experience, long wait time.",
+    "isAnonymous": true
   }'
+```
 
-# Mock mode (MOCK_ prefix skips signature check)
-curl -X POST http://localhost:8080/payments/verify \
+**✅ 201 Created:**
+```json
+{
+  "reviewId": 1,
+  "appointmentId": 7,
+  "patientId": 12,
+  "providerId": 3,
+  "rating": 5,
+  "comment": "Excellent consultation. Very professional.",
+  "anonymous": false,
+  "createdAt": "2026-04-22T10:30:00",
+  "updatedAt": "2026-04-22T10:30:00"
+}
+```
+
+---
+
+### Step 3 — Query Reviews
+
+```bash
+# All reviews for doctor (newest first)
+curl http://localhost:8080/reviews/provider/3 \
+  -H "Authorization: Bearer $TOKEN"
+
+# Average star rating
+curl http://localhost:8080/reviews/provider/3/average \
+  -H "Authorization: Bearer $TOKEN"
+# → {"providerId": 3, "averageRating": 4.7}
+
+# Total review count
+curl http://localhost:8080/reviews/provider/3/count \
+  -H "Authorization: Bearer $TOKEN"
+# → {"providerId": 3, "totalReviews": 2}
+
+# All reviews by patient
+curl http://localhost:8080/reviews/patient/12 \
+  -H "Authorization: Bearer $TOKEN"
+
+# Single review
+curl http://localhost:8080/reviews/1 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+### Step 4 — Update Review
+
+```bash
+curl -X PUT http://localhost:8080/reviews/1 \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
-    "razorpayOrderId": "MOCK_ORDER_5",
-    "razorpayPaymentId": "MOCK_PAY_1712345678",
-    "razorpaySignature": null
+    "appointmentId": 7,
+    "patientId": 12,
+    "providerId": 3,
+    "rating": 4,
+    "comment": "Good doctor but the waiting room was crowded.",
+    "isAnonymous": true
   }'
 ```
 
-**✅ 200 OK Response:**
-```json
-{
-  "paymentId": 1,
-  "status": "SUCCESS",
-  "razorpayPaymentId": "pay_ABC123XYZ456",
-  "message": "Payment successful. Appointment confirmed."
-}
-```
-
 ---
 
-### Step 4 — Initiate Refund
+### Step 5 — Admin Delete
 
 ```bash
-curl -X POST http://localhost:8080/payments/1/refund \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-```
-
-**✅ 200 OK Response:**
-```json
-{
-  "paymentId": 1,
-  "status": "REFUNDED",
-  "message": "Refund initiated successfully."
-}
-```
-
----
-
-### Step 5 — Query Endpoints
-
-```bash
-# Get payment by appointment ID
-curl http://localhost:8080/payments/appointment/5 \
-  -H "Authorization: Bearer $TOKEN"
-
-# Get payment by payment ID
-curl http://localhost:8080/payments/1 \
-  -H "Authorization: Bearer $TOKEN"
-
-# Get all payments for a patient
-curl http://localhost:8080/payments/patient/12 \
-  -H "Authorization: Bearer $TOKEN"
-
-# Get all payments for a provider
-curl http://localhost:8080/payments/provider/3 \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-```
-
----
-
-### Step 6 — Admin Analytics
-
-```bash
-# Total platform revenue
-curl http://localhost:8080/payments/revenue/total \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-```
-
-**✅ 200 OK Response:**
-```json
-{
-  "totalRevenue": 125000.0,
-  "currency": "INR",
-  "message": "Total revenue from all successful payments"
-}
-```
-
-```bash
-# Filter by status
-curl "http://localhost:8080/payments/status?status=FAILED" \
+curl -X DELETE http://localhost:8080/reviews/1 \
   -H "Authorization: Bearer $ADMIN_TOKEN"
 
-curl "http://localhost:8080/payments/status?status=REFUNDED" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-curl "http://localhost:8080/payments/status?status=PENDING" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
-
-# Manually update payment status (admin fix / webhook handler)
-curl -X PUT "http://localhost:8080/payments/1/status?status=SUCCESS" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
+# → {"message": "Review deleted successfully."}
+# → provider avgRating is automatically recalculated
 ```
 
 ---
@@ -444,49 +406,59 @@ curl -X PUT "http://localhost:8080/payments/1/status?status=SUCCESS" \
 ### ❌ Error Scenarios
 
 ```bash
-# 409 Conflict — duplicate payment for same appointment
-curl -X POST http://localhost:8080/payments/initiate \
+# 400 — appointment not COMPLETED
+curl -X POST http://localhost:8080/reviews/submit \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
-  -d '{"appointmentId": 5, "patientId": 12, "amount": 500, "paymentMethod": "UPI"}'
+  -d '{"appointmentId":99,"patientId":12,"providerId":3,"rating":5}'
 
-# 400 Bad Request — invalid status filter
-curl "http://localhost:8080/payments/status?status=INVALID" \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
+# 409 — duplicate review for same appointment
+curl -X POST http://localhost:8080/reviews/submit \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"appointmentId":7,"patientId":12,"providerId":3,"rating":4}'
 
-# 400 Bad Request — refund a non-SUCCESS payment
-curl -X POST http://localhost:8080/payments/99/refund \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
+# 400 — rating out of valid range (must be 1–5)
+curl -X POST http://localhost:8080/reviews/submit \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"appointmentId":10,"patientId":12,"providerId":3,"rating":6}'
 
-# 404 Not Found — payment does not exist
-curl http://localhost:8080/payments/9999 \
+# 404 — review not found
+curl http://localhost:8080/reviews/9999 \
   -H "Authorization: Bearer $TOKEN"
 
-# 401 Unauthorized — missing auth header
-curl http://localhost:8080/payments/revenue/total
+# 401 — missing authorization
+curl http://localhost:8080/reviews/provider/3/average
 ```
 
 ---
 
-### 🧪 Swagger UI
+### 🧪 Swagger UI & Actuator
 
-> Open **`http://localhost:8085/swagger-ui.html`** for interactive testing.
-> Click **Authorize** → paste your Bearer token → test any endpoint with **Try it out**.
+```bash
+# Interactive Swagger UI
+open http://localhost:8086/swagger-ui.html
+
+# Actuator endpoints
+curl http://localhost:8086/actuator/health
+curl http://localhost:8086/actuator/metrics
+curl http://localhost:8086/actuator/info
+```
 
 ---
 
 ## ⚙️ Environment Variables
 
-### Payment Service
+### Review Service
 
 | Variable | Default | Required | Description |
 |----------|---------|----------|-------------|
-| `JWT_SECRET` | — | ✅ Required | Must match across **all** services. Min 256-bit key. |
-| `DB_USERNAME` | `medibook_user` | ⬜ Optional | MySQL username for `payment_db` |
-| `DB_PASSWORD` | `medibook_pass` | ⬜ Optional | MySQL password for `payment_db` |
-| `RAZORPAY-API-KEY` | — | ✅ Required | Razorpay API key ID from dashboard |
-| `RAZORPAY-KEY-SECRET` | — | ✅ Required | Razorpay key secret for HMAC signing |
-| `EUREKA_DEFAULT_ZONE` | `localhost:8761` | ⬜ Optional | Eureka server URL with credentials |
+| `JWT_SECRET` | — | ✅ Required | Must match across **all** services |
+| `DB_URL` | `jdbc:mysql://localhost:3306/review_db` | ⬜ Optional | Full JDBC connection URL |
+| `DB_USERNAME` | `medibook_user` | ⬜ Optional | MySQL username |
+| `DB_PASSWORD` | `medibook_pass` | ⬜ Optional | MySQL password |
+| `EUREKA_DEFAULT_ZONE` | `http://admin:medibook123@localhost:8761/eureka/` | ⬜ Optional | Eureka server URL |
 
 ### Auth Service (Additional)
 
@@ -504,30 +476,28 @@ curl http://localhost:8080/payments/revenue/total
 ### 1. Database Setup
 
 ```sql
--- Run as MySQL root
 CREATE USER 'medibook_user'@'localhost' IDENTIFIED BY 'medibook_pass';
 GRANT ALL PRIVILEGES ON *.* TO 'medibook_user'@'localhost';
 FLUSH PRIVILEGES;
--- Databases are auto-created by Spring (createDatabaseIfNotExist=true)
+-- review_db auto-created by Spring (createDatabaseIfNotExist=true in JDBC URL)
 ```
 
-### 2. Service Startup Order
-
-> ⚠️ **Order matters!** Eureka must be up before any other service registers.
+### 2. Startup Order
 
 ```bash
-# 1️⃣ Start Eureka Server FIRST
-cd eureka-server && mvn spring-boot:run
+# 1️⃣  Eureka Server FIRST
+cd eureka-server       && mvn spring-boot:run
 
-# 2️⃣ Start API Gateway SECOND
-cd api-gateway && mvn spring-boot:run
+# 2️⃣  API Gateway SECOND
+cd api-gateway         && mvn spring-boot:run
 
-# 3️⃣ Start all other services (any order)
+# 3️⃣  All other services
 cd auth-service        && mvn spring-boot:run &
 cd provider-service    && mvn spring-boot:run &
 cd schedule-service    && mvn spring-boot:run &
 cd appointment-service && mvn spring-boot:run &
 cd payment-service     && mvn spring-boot:run &
+cd review-service      && mvn spring-boot:run &
 ```
 
 ### 3. Port Reference
@@ -540,21 +510,18 @@ cd payment-service     && mvn spring-boot:run &
 | 👨‍⚕️ Provider Service | `8082` | http://localhost:8082 |
 | 📅 Schedule Service | `8083` | http://localhost:8083 |
 | 🏥 Appointment Service | `8084` | http://localhost:8084 |
-| 💳 **Payment Service** ⭐ | **`8085`** | http://localhost:8085 · Swagger: `/swagger-ui.html` |
+| 💳 Payment Service | `8085` | http://localhost:8085 |
+| ⭐ **Review Service** ★ | **`8086`** | http://localhost:8086 · Swagger: `/swagger-ui.html` · Actuator: `/actuator/health` |
 
-### 4. Build All Services
+### 4. Build
 
 ```bash
-# Build all modules from project root
+# All modules
 mvn clean install -DskipTests
 
-# Build payment-service only
-cd payment-service && mvn clean package -DskipTests
+# Review service only
+cd review-service && mvn clean package -DskipTests
 ```
-
-> ✅ **All APIs are routed via Gateway on port `8080`.**
-> Use `http://localhost:8080/payments/...` for all requests.
-> Direct `:8085` access is for Swagger UI and local debugging only.
 
 ---
 
@@ -562,23 +529,24 @@ cd payment-service && mvn clean package -DskipTests
 
 ```
 MediBook-Microservices/
-├── pom.xml                      ← Parent POM (all modules)
-├── eureka-server/               ← :8761 — Start first
-├── api-gateway/                 ← :8080 — JWT filter + routing
-├── auth-service/                ← :8081 — JWT issuance
-├── provider-service/            ← :8082 — Doctor profiles
-├── schedule-service/            ← :8083 — Slot management
-├── appointment-service/         ← :8084 — Booking engine
-└── payment-service/             ← :8085 — UC5 ⭐
-    └── src/main/java/com/medibook/payment/
-        ├── resource/            ← REST controllers
-        ├── service/             ← Interface + Impl
-        ├── entity/              ← Payment entity
-        ├── dto/                 ← Request / Response DTOs
-        ├── repository/          ← JPA queries
-        ├── client/              ← Feign: AppointmentClient
-        ├── config/              ← Security, OpenAPI
-        └── exception/           ← Global exception handler
+├── pom.xml
+├── eureka-server/
+├── api-gateway/
+├── auth-service/
+├── provider-service/
+├── schedule-service/
+├── appointment-service/
+├── payment-service/
+└── review-service/                ← UC6 ⭐
+    └── src/main/java/com/medibook/review/
+        ├── resource/              ← ReviewResource (REST)
+        ├── service/               ← ReviewService + ReviewServiceImpl
+        ├── entity/                ← Review entity
+        ├── dto/request/           ← ReviewRequest, AppointmentDto
+        ├── repository/            ← ReviewRepository (JPA)
+        ├── client/                ← AppointmentClient, ProviderClient (Feign ×2)
+        ├── config/                ← SecurityConfig
+        └── exception/             ← GlobalExceptionHandler + custom exceptions
 ```
 
 ---
@@ -593,9 +561,11 @@ Java | Spring Boot | Spring Security | JWT | MySQL | Clean Architecture
 
 <div align="center">
 
-**MediBook Microservices** · `feature/UC5-payment-service`
+**MediBook Microservices** · `feature/UC6-review-service`
 
-Spring Boot 3.2 · Java 17 · Razorpay · MySQL · Spring Cloud Eureka · JWT
+Spring Boot 3.2 · Java 17 · MySQL · Spring Cloud Eureka · Feign ×2 · JWT
+
+★★★★★
 
 [![Made with Spring](https://img.shields.io/badge/Made%20with-Spring%20Boot-6DB33F?style=flat-square&logo=springboot)](https://spring.io)
 

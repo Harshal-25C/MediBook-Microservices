@@ -39,7 +39,7 @@ spring:
           predicates:
             - Path=/providers/**
 
-        # ── SLOT SERVICE ─────────────────────────────────────────────
+        # ── SCHEDULE SERVICE ─────────────────────────────────────────────
         - id: schedule-service
           uri: lb://schedule-service
           predicates:
@@ -57,17 +57,17 @@ spring:
           predicates:
             - Path=/payments/**
 
-        # ── NOTIFICATION SERVICE ──────────────────────────────────────
-        - id: notification-service
-          uri: lb://notification-service
-          predicates:
-            - Path=/notifications/**
-
         # ── REVIEW SERVICE ────────────────────────────────────────────
         - id: review-service
           uri: lb://review-service
           predicates:
             - Path=/reviews/**
+
+        # ── NOTIFICATION SERVICE ──────────────────────────────────────
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/notifications/**
 
         # ── RECORD SERVICE ────────────────────────────────────────────
         - id: record-service
