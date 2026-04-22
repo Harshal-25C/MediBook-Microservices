@@ -41,10 +41,10 @@ public class PaymentServiceImpl implements PaymentService {
     @Autowired
     private AppointmentClient appointmentClient;
 
-    @Value("${razorpay.key.id:mock_key}")
+    @Value("${razorpay.key.id}")
     private String razorpayKeyId;
 
-    @Value("${razorpay.key.secret:mock_secret}")
+    @Value("${razorpay.key.secret}")
     private String razorpayKeySecret;
 
     @Value("${razorpay.currency:INR}")
