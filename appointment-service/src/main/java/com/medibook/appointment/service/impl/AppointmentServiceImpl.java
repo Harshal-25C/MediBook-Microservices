@@ -133,14 +133,13 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Transactional
     public void completeAppointment(int appointmentId) {
         Appointment appointment = getById(appointmentId);
-        if (!appointment.getStatus().equals("SCHEDULED"))
-            throw new BadRequestException("Only SCHEDULED appointments can be marked complete.");
+
+        if (appointment.getStatus().equals("COMPLETED")) {
+            throw new BadRequestException("Appointment already completed.");
+        }
 
         appointment.setStatus("COMPLETED");
-        Appointment saved = appointmentRepository.save(appointment);
-
-        // ── RabbitMQ: publish COMPLETED event → notification-service ──
-        eventPublisher.publishCompleted(saved);
+        appointmentRepository.save(appointment);
     }
 
     @Override
