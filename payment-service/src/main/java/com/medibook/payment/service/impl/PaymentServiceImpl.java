@@ -168,16 +168,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         payment.setRazorpayPaymentId(razorpayPaymentId);
         payment.setRazorpaySignature(razorpaySignature);
-        payment.setStatus("SUCCESS");  // Payment Successful
-        payment.setRazorpayPaymentId("TXN_" + System.currentTimeMillis());  // Transaction ID
-        payment.setNotes("Payment verified via Razorpay. Transaction: " + razorpayPaymentId);  // Payment Completed
-        
-        try {
-            appointmentClient.markCompleted(payment.getAppointmentId());
-            System.out.println("✅ Appointment marked completed");
-        } catch (Exception e) {
-            System.out.println("❌ Failed to call appointment-service: " + e.getMessage());
-        }
+        payment.setStatus("SUCCESS");
+        payment.setNotes("Payment verified via Razorpay. Transaction: " + razorpayPaymentId);
 
         Payment saved = paymentRepository.save(payment);
         return buildResponse(saved, "Payment successful. Appointment confirmed.");
