@@ -145,7 +145,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Transactional
     public void completeAppointment(int appointmentId, int requestingProviderId) {
         Appointment appointment = getById(appointmentId);
-
+        
         // Authorization check: only the assigned provider may complete
         if (appointment.getProviderId() != requestingProviderId) {
             throw new ForbiddenException(
@@ -154,6 +154,9 @@ public class AppointmentServiceImpl implements AppointmentService {
             );
         }
 
+        if (!appointment.getStatus().equals("SCHEDULED"))
+            throw new BadRequestException("Only SCHEDULED appointments can be marked complete.");
+
         if (appointment.getStatus().equals("COMPLETED"))
             throw new BadRequestException("Appointment already completed.");
         if (appointment.getStatus().equals("CANCELLED"))
@@ -161,6 +164,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         appointment.setStatus("COMPLETED");
         Appointment saved = appointmentRepository.save(appointment);
+
         try { eventPublisher.publishCompleted(saved); } catch (Exception e) {
             System.err.println("[RabbitMQ] publishCompleted failed (non-fatal): " + e.getMessage());
         }
@@ -192,6 +196,9 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         appointment.setStatus("NO_SHOW");
         appointmentRepository.save(appointment);
+
+        // ── RabbitMQ: publish COMPLETED event → notification-service ──
+        eventPublisher.publishCompleted(saved);
     }
 
     /**

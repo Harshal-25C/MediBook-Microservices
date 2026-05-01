@@ -178,6 +178,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         payment.setRazorpayPaymentId(razorpayPaymentId);
         payment.setRazorpaySignature(razorpaySignature);
+        
         payment.setStatus("SUCCESS");  // Payment Successful
         // FIX: Store the REAL Razorpay payment ID (pay_XXXX) so refunds work.
         // If signature verification is skipped in dev mode, razorpayPaymentId may be the
@@ -193,6 +194,9 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (Exception e) {
             System.out.println("❌ Failed to update appointment status: " + e.getMessage());
         }
+
+        payment.setStatus("SUCCESS");
+        payment.setNotes("Payment verified via Razorpay. Transaction: " + razorpayPaymentId);
 
         Payment saved = paymentRepository.save(payment);
         return buildResponse(saved, "Payment successful. Appointment confirmed.");
