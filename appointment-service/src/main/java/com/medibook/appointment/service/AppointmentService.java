@@ -8,74 +8,20 @@ import java.util.List;
 
 public interface AppointmentService {
 
-    /*
-     * Book a new appointment.
-     * Patient selects doctor, slot, date, mode.
-     * System creates appointment record.
-     * System calls ScheduleService to mark slot as booked.
-     * Returns saved appointment with generated appointmentId.
-     */
     Appointment bookAppointment(AppointmentRequest request);
 
-    /*
-     * Get a single appointment by its ID.
-     * Used when viewing appointment details.
-     * Also used by Payment and MedicalRecord services
-     * to verify appointment exists before linking.
-     */
     Appointment getById(int appointmentId);
 
-    /*
-     * Get all appointments for a specific patient.
-     * Patient views their complete appointment history.
-     * Includes all statuses — scheduled, completed, cancelled.
-     */
     List<Appointment> getByPatient(int patientId);
 
-    /*
-     * Get all appointments for a specific doctor.
-     * Doctor views all their bookings on dashboard.
-     * Admin monitors doctor workload.
-     */
     List<Appointment> getByProvider(int providerId);
 
-    /*
-     * Get all appointments for a doctor on a specific date.
-     * Doctor views today's schedule.
-     * Example: who is coming in today April 10?
-     */
-    List<Appointment> getByProviderAndDate(
-            int providerId,
-            LocalDate date
-    );
+    List<Appointment> getByProviderAndDate(int providerId, LocalDate date);
 
-    /*
-     * Get all upcoming appointments for a patient.
-     * Upcoming = status SCHEDULED AND date is today or future.
-     * Shown on patient dashboard as upcoming appointments.
-     * Notification reminders sent for these.
-     */
     List<Appointment> getUpcomingByPatient(int patientId);
 
-    /*
-     * Cancel an appointment.
-     * Patient or doctor can cancel.
-     * Status changes to CANCELLED.
-     * Slot is released back to available.
-     * Refund triggered if payment was made (UC5).
-     * Notification sent to both patient and doctor (UC7).
-     */
     void cancelAppointment(int appointmentId);
 
-    /*
-     * Reschedule an appointment to a different slot.
-     * Patient moves booking to another available slot
-     * with the same doctor.
-     * Old slot is released.
-     * New slot is booked.
-     * Status stays SCHEDULED.
-     * Notifications sent (UC7).
-     */
     Appointment rescheduleAppointment(
             int appointmentId,
             int newSlotId,
@@ -84,27 +30,26 @@ public interface AppointmentService {
             String newEndTime
     );
 
-    /*
-     * Doctor marks appointment as completed.
-     * Status changes to COMPLETED.
-     * Patient can now submit a review (UC6).
-     * Doctor can now create medical record (UC8).
-     * Notification sent to patient (UC7).
+    /**
+     * FIX: Provider marks appointment COMPLETED.
+     * requestingProviderId is checked against appointment.providerId
+     * to ensure only the assigned provider can complete it.
      */
-    void completeAppointment(int appointmentId);
+    void completeAppointment(int appointmentId, int requestingProviderId);
 
-    /*
-     * Update appointment status manually.
-     * Used by admin to fix incorrect statuses.
-     * Also used by NoShowDetectionScheduler
-     * to auto set status to NO_SHOW.
+    /**
+     * FIX: Provider marks appointment NO_SHOW.
+     * requestingProviderId is checked against appointment.providerId
+     * to ensure only the assigned provider can mark NO_SHOW.
+     */
+    void markNoShow(int appointmentId, int requestingProviderId);
+
+    /**
+     * Update appointment status.
+     * Used by admin and the NoShowDetectionScheduler.
+     * When status is CONFIRMED (from payment), stored as SCHEDULED.
      */
     void updateStatus(int appointmentId, String status);
 
-    /*
-     * Count total appointments for a doctor.
-     * Used in doctor earnings dashboard.
-     * Also used in admin analytics.
-     */
     int getAppointmentCount(int providerId);
 }
