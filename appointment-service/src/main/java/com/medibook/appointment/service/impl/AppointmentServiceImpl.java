@@ -12,6 +12,7 @@ import com.medibook.appointment.dto.AppointmentRequest;
 import com.medibook.appointment.dto.SlotDto;
 import com.medibook.appointment.entity.Appointment;
 import com.medibook.appointment.exception.BadRequestException;
+import com.medibook.appointment.exception.ForbiddenException;
 import com.medibook.appointment.exception.ResourceNotFoundException;
 import com.medibook.appointment.messaging.AppointmentEventPublisher;
 import com.medibook.appointment.repository.AppointmentRepository;
@@ -26,7 +27,6 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Autowired
     private SlotClient slotClient;
 
-    /** RabbitMQ publisher — injected to fire events after each state change */
     @Autowired
     private AppointmentEventPublisher eventPublisher;
 
@@ -54,11 +54,16 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .endTime(slot.getEndTime())
                 .modeOfConsultation(request.getModeOfConsultation())
                 .notes(request.getNotes())
-                .status("PENDING_PAYMENT")
+                .status("SCHEDULED")
                 .build();
 
         Appointment saved = appointmentRepository.save(appointment);
-     
+
+        // Book the slot immediately — appointment is SCHEDULED from creation
+        slotClient.bookSlot(request.getSlotId());
+        try { eventPublisher.publishBooked(saved); } catch (Exception e) {
+            System.err.println("[RabbitMQ] publishBooked failed (non-fatal): " + e.getMessage());
+        }
 
         return saved;
     }
@@ -101,9 +106,10 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointment.setStatus("CANCELLED");
         Appointment saved = appointmentRepository.save(appointment);
         slotClient.releaseSlot(appointment.getSlotId());
-
-        // ── RabbitMQ: publish CANCELLED event → notification-service ──
-        eventPublisher.publishCancelled(saved);
+        // Wrapped in try-catch: RabbitMQ being down must never block cancellation
+        try { eventPublisher.publishCancelled(saved); } catch (Exception e) {
+            System.err.println("[RabbitMQ] publishCancelled failed (non-fatal): " + e.getMessage());
+        }
     }
 
     @Override
@@ -111,7 +117,8 @@ public class AppointmentServiceImpl implements AppointmentService {
     public Appointment rescheduleAppointment(int appointmentId, int newSlotId,
             LocalDate newDate, String newStartTime, String newEndTime) {
         Appointment appointment = getById(appointmentId);
-        if (!appointment.getStatus().equals("SCHEDULED"))
+
+        if (!appointment.getStatus().equals("SCHEDULED") && !appointment.getStatus().equals("CONFIRMED"))
             throw new BadRequestException("Only SCHEDULED appointments can be rescheduled.");
 
         slotClient.releaseSlot(appointment.getSlotId());
@@ -123,39 +130,101 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointment.setAppointmentDate(newSlot.getDate());
         appointment.setStartTime(newSlot.getStartTime());
         appointment.setEndTime(newSlot.getEndTime());
+        // Keep status as-is (SCHEDULED stays SCHEDULED)
 
         Appointment saved = appointmentRepository.save(appointment);
         slotClient.bookSlot(newSlotId);
         return saved;
     }
 
+    /**
+     * FIX: Provider marks appointment as COMPLETED.
+     * Authorization check: only the assigned provider can complete it.
+     */
     @Override
     @Transactional
-    public void completeAppointment(int appointmentId) {
+    public void completeAppointment(int appointmentId, int requestingProviderId) {
         Appointment appointment = getById(appointmentId);
+        
+        // Authorization check: only the assigned provider may complete
+        if (appointment.getProviderId() != requestingProviderId) {
+            throw new ForbiddenException(
+                "You are not authorized to complete this appointment. " +
+                "Only the assigned provider can mark it as completed."
+            );
+        }
+
         if (!appointment.getStatus().equals("SCHEDULED"))
             throw new BadRequestException("Only SCHEDULED appointments can be marked complete.");
 
+        if (appointment.getStatus().equals("COMPLETED"))
+            throw new BadRequestException("Appointment already completed.");
+        if (appointment.getStatus().equals("CANCELLED"))
+            throw new BadRequestException("Cannot complete a cancelled appointment.");
+
         appointment.setStatus("COMPLETED");
         Appointment saved = appointmentRepository.save(appointment);
+
+        try { eventPublisher.publishCompleted(saved); } catch (Exception e) {
+            System.err.println("[RabbitMQ] publishCompleted failed (non-fatal): " + e.getMessage());
+        }
+    }
+
+    /**
+     * FIX: Provider marks appointment as NO_SHOW.
+     * Authorization check: only the assigned provider can mark NO_SHOW.
+     */
+    @Override
+    @Transactional
+    public void markNoShow(int appointmentId, int requestingProviderId) {
+        Appointment appointment = getById(appointmentId);
+
+        // Authorization check: only the assigned provider may mark NO_SHOW
+        if (appointment.getProviderId() != requestingProviderId) {
+            throw new ForbiddenException(
+                "You are not authorized to mark this appointment as NO_SHOW. " +
+                "Only the assigned provider can do this."
+            );
+        }
+
+        if (appointment.getStatus().equals("COMPLETED"))
+            throw new BadRequestException("Cannot mark a completed appointment as NO_SHOW.");
+        if (appointment.getStatus().equals("CANCELLED"))
+            throw new BadRequestException("Cannot mark a cancelled appointment as NO_SHOW.");
+        if (appointment.getStatus().equals("NO_SHOW"))
+            throw new BadRequestException("Appointment is already marked as NO_SHOW.");
+
+        appointment.setStatus("NO_SHOW");
+        appointmentRepository.save(appointment);
 
         // ── RabbitMQ: publish COMPLETED event → notification-service ──
         eventPublisher.publishCompleted(saved);
     }
 
+    /**
+     * FIX: updateStatus
+     * Frontend now sends "SCHEDULED" directly after payment success.
+     * "CONFIRMED" is kept as fallback (legacy / COD old flow) → also stored as SCHEDULED.
+     * Both book the slot and fire the booked event.
+     */
     @Override
     @Transactional
     public void updateStatus(int appointmentId, String status) {
         Appointment appointment = getById(appointmentId);
-        appointment.setStatus(status);
-        if (status.equals("CONFIRMED")) {
-            slotClient.bookSlot(appointment.getSlotId());
+
+        if ("SCHEDULED".equals(status) || "CONFIRMED".equals(status)) {
+            // Payment verified: ensure status is SCHEDULED.
+            // Slot is already booked at appointment creation — do NOT call bookSlot again.
+            appointment.setStatus("SCHEDULED");
             eventPublisher.publishBooked(appointment);
-        }
-        if (status.equals("CANCELLED")) {
+        } else if ("CANCELLED".equals(status)) {
+            appointment.setStatus("CANCELLED");
             slotClient.releaseSlot(appointment.getSlotId());
             eventPublisher.publishCancelled(appointment);
+        } else {
+            appointment.setStatus(status);
         }
+
         appointmentRepository.save(appointment);
     }
 

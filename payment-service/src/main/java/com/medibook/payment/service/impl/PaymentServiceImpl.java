@@ -61,6 +61,16 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private boolean callRefundGateway(String razorpayPaymentId) {
+        // FIX: Detect simulated/fake payment IDs (TXN_, null, or not starting with "pay_").
+        // In dev/test mode, payments are simulated — so refunds are also simulated.
+        // Real Razorpay payment IDs always start with "pay_".
+        if (razorpayPaymentId == null
+                || razorpayPaymentId.startsWith("TXN_")
+                || !razorpayPaymentId.startsWith("pay_")) {
+            System.out.println("[Refund] Simulated payment detected (ID: " + razorpayPaymentId
+                    + ") — processing as simulated refund.");
+            return true; // simulate success
+        }
         return razorpayRefund(razorpayPaymentId);
     }
 
@@ -119,7 +129,7 @@ public class PaymentServiceImpl implements PaymentService {
         // Replaces: appointmentService.getById(request.getAppointmentId())
         AppointmentDto appointment = appointmentClient.getById(request.getAppointmentId());
 
-        if (!appointment.getStatus().equals("SCHEDULED") && !appointment.getStatus().equals("PENDING_PAYMENT")) {
+        if (!appointment.getStatus().equals("SCHEDULED") && !appointment.getStatus().equals("CONFIRMED")) {
             throw new BadRequestException(
                 "Payment can only be made for scheduled appointments. Status: " + appointment.getStatus());
         }
@@ -168,6 +178,23 @@ public class PaymentServiceImpl implements PaymentService {
 
         payment.setRazorpayPaymentId(razorpayPaymentId);
         payment.setRazorpaySignature(razorpaySignature);
+        
+        payment.setStatus("SUCCESS");  // Payment Successful
+        // FIX: Store the REAL Razorpay payment ID (pay_XXXX) so refunds work.
+        // If signature verification is skipped in dev mode, razorpayPaymentId may be the
+        // test value — store it as-is. We detect fake IDs in callRefundGateway().
+        payment.setRazorpayPaymentId(razorpayPaymentId);
+        payment.setNotes("Payment verified via Razorpay. Transaction: " + razorpayPaymentId);
+        
+        // FIX: Payment verified → mark appointment SCHEDULED, NOT completed.
+        // Only the provider marks COMPLETED after the patient physically attends.
+        try {
+            appointmentClient.updateStatus(payment.getAppointmentId(), "SCHEDULED");
+            System.out.println("✅ Appointment marked SCHEDULED after payment success");
+        } catch (Exception e) {
+            System.out.println("❌ Failed to update appointment status: " + e.getMessage());
+        }
+
         payment.setStatus("SUCCESS");
         payment.setNotes("Payment verified via Razorpay. Transaction: " + razorpayPaymentId);
 

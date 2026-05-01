@@ -281,6 +281,13 @@ public class ScheduleServiceImpl implements ScheduleService {
         // find the slot — throws 404 if not found
         AvailabilitySlot slot = getSlotById(slotId);
 
+        // FIX: Safe no-op if slot is already unbooked.
+        // Handles cancellation of old PENDING_PAYMENT appointments
+        // where bookSlot was never called.
+        if (!slot.isBooked()) {
+            return;
+        }
+
         // set isBooked back to false
         slot.setBooked(false);
 
