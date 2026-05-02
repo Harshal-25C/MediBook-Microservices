@@ -43,4 +43,13 @@ public interface AuthService {
 
     // Reset password — save new password after OTP verified
     void resetPassword(String token, String newPassword);
+
+    // Admin: get all users
+    java.util.List<User> getAllUsers();
+
+    // Admin: get users by role (Patient / Provider / Admin)
+    java.util.List<User> getUsersByRole(String role);
+
+    // Admin: reactivate a deactivated user
+    void reactivateAccount(int userId);
 }

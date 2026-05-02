@@ -195,10 +195,10 @@ public class AppointmentServiceImpl implements AppointmentService {
             throw new BadRequestException("Appointment is already marked as NO_SHOW.");
 
         appointment.setStatus("NO_SHOW");
-        appointmentRepository.save(appointment);
-
-        // ── RabbitMQ: publish COMPLETED event → notification-service ──
-        eventPublisher.publishCompleted(saved);
+        Appointment saved = appointmentRepository.save(appointment);
+        try { eventPublisher.publishCompleted(saved); } catch (Exception e) {
+            System.err.println("[RabbitMQ] publishCompleted(NO_SHOW) failed (non-fatal): " + e.getMessage());
+        }
     }
 
     /**

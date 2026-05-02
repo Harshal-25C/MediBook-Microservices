@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -84,22 +85,40 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Async
     public void sendBulk(List<Integer> recipientIds, String title, String message) {
-        if(recipientIds == null || recipientIds.isEmpty())
-            throw new BadRequestException("Recipient list cannot be empty.");
-        if(title == null || title.trim().isEmpty())
-            throw new BadRequestException("Title cannot be empty.");
-        if(message == null || message.trim().isEmpty())
-            throw new BadRequestException("Message cannot be empty.");
+        if(recipientIds == null || recipientIds.isEmpty()) return;
+        if(title == null || title.trim().isEmpty()) return;
+        if(message == null || message.trim().isEmpty()) return;
 
         for(int recipientId : recipientIds) {
-            NotificationRequest request = new NotificationRequest();
-            request.setRecipientId(recipientId);
-            request.setType("ANNOUNCEMENT");
-            request.setTitle(title);
-            request.setMessage(message);
-            request.setChannel("APP");
-            send(request);
+            // Send APP (in-app bell) notification
+            try {
+                NotificationRequest appRequest = new NotificationRequest();
+                appRequest.setRecipientId(recipientId);
+                appRequest.setType("ANNOUNCEMENT");
+                appRequest.setTitle(title);
+                appRequest.setMessage(message);
+                appRequest.setChannel("APP");
+                send(appRequest);
+            } catch (Exception e) {
+                System.err.println("[Notification] APP notify failed for user "
+                        + recipientId + ": " + e.getMessage());
+            }
+
+            // Send EMAIL notification
+            try {
+                NotificationRequest emailRequest = new NotificationRequest();
+                emailRequest.setRecipientId(recipientId);
+                emailRequest.setType("ANNOUNCEMENT");
+                emailRequest.setTitle(title);
+                emailRequest.setMessage(message);
+                emailRequest.setChannel("EMAIL");
+                send(emailRequest);
+            } catch (Exception e) {
+                System.err.println("[Notification] Email notify failed for user "
+                        + recipientId + ": " + e.getMessage());
+            }
         }
     }
 

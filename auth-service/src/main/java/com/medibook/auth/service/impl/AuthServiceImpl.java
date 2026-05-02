@@ -248,6 +248,26 @@ public class AuthServiceImpl implements AuthService {
         user.setActive(false);
         userRepository.save(user);
     }
+
+    // getAllUsers() — Admin: fetch every user in the system
+    @Override
+    public java.util.List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    // getUsersByRole() — Admin: filter users by role
+    @Override
+    public java.util.List<User> getUsersByRole(String role) {
+        return userRepository.findAllByRole(role);
+    }
+
+    // reactivateAccount() — Admin: re-enable a deactivated user
+    @Override
+    public void reactivateAccount(int userId) {
+        User user = getUserById(userId);
+        user.setActive(true);
+        userRepository.save(user);
+    }
     
    
 
