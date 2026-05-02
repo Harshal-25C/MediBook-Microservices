@@ -54,13 +54,12 @@ public class NotificationResource {
         String title = (String) body.get("title");
         String message = (String) body.get("message");
 
-        // send bulk notification
-        notificationService.sendBulk(
-                recipientIds, title, message);
+        // sendBulk is @Async — returns immediately, processes in background thread
+        notificationService.sendBulk(recipientIds, title, message);
 
-        return ResponseEntity.ok(Map.of(
-                "message", "Bulk notification sent to "
-                        + recipientIds.size() + " users."
+        return ResponseEntity.accepted().body(Map.of(
+                "message", "Bulk notification queued for "
+                        + recipientIds.size() + " users. Emails will arrive shortly."
         ));
     }
 

@@ -1,6 +1,7 @@
 package com.medibook.auth.resource;
 
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -261,5 +262,33 @@ public class AuthResource {
                 "success", true,
                 "message", "Password reset successful. Please login with your new password."
         ));
+    }
+
+    // ── Admin User Management Endpoints ──────────────────────────────────
+
+    /**
+     * GET /auth/users — returns all users (Admin only)
+     */
+    @GetMapping("/users")
+    public ResponseEntity<List<User>> getAllUsers() {
+        return ResponseEntity.ok(authService.getAllUsers());
+    }
+
+    /**
+     * GET /auth/users/role/{role} — returns users filtered by role
+     * role values: Patient, Provider, Admin
+     */
+    @GetMapping("/users/role/{role}")
+    public ResponseEntity<List<User>> getUsersByRole(@PathVariable String role) {
+        return ResponseEntity.ok(authService.getUsersByRole(role));
+    }
+
+    /**
+     * PUT /auth/reactivate/{userId} — re-enable a deactivated user account
+     */
+    @PutMapping("/reactivate/{userId}")
+    public ResponseEntity<?> reactivate(@PathVariable int userId) {
+        authService.reactivateAccount(userId);
+        return ResponseEntity.ok(Map.of("message", "Account reactivated successfully"));
     }
 }
