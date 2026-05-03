@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d4a3a,40:137057,80:1a9e6e,100:0d4a3a&height=220&section=header&text=🏥%20MediBook%20Appointment%20Booking%20System&fontSize=42&fontColor=ffffff&animation=fadeIn&fontAlignY=40&desc=Microservice-Architecture%20·%20Follow-Up%20Scheduler%20·%20Spring%20Boot%203.2&descAlignY=60&descAlign=50" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d4a3a,40:137057,80:1a9e6e,100:0d4a3a&height=220&section=header&text=🏥MediBook: Appointment%20Booking%20System&fontSize=42&fontColor=ffffff&animation=fadeIn&fontAlignY=40&desc=Microservice-Architecture%20·%20Follow-Up%20Scheduler%20·%20Spring%20Boot%203.2&descAlignY=60&descAlign=50" width="100%"/>
 
 <br/>
 
