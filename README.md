@@ -1,1213 +1,1572 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d4a3a,40:137057,80:1a9e6e,100:0d4a3a&height=220&section=header&text=🏥%20MediBook%20Record%20Service&fontSize=42&fontColor=ffffff&animation=fadeIn&fontAlignY=40&desc=UC8%20·%20Medical%20Records%20·%20Follow-Up%20Scheduler%20·%20Spring%20Boot%203.2&descAlignY=60&descAlign=50" width="100%"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d4a3a,40:137057,80:1a9e6e,100:0d4a3a&height=220&section=header&text=🏥MediBook%20Appointment%20Booking%20System&fontSize=42&fontColor=ffffff&animation=fadeIn&fontAlignY=40&desc=Microservice-Architecture%20·%20Follow-Up%20Scheduler%20·%20Spring%20Boot%203.2&descAlignY=60&descAlign=50" width="100%"/>
 
 <br/>
 
-![Java](https://img.shields.io/badge/Java_17-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot_3.2-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
-![MySQL](https://img.shields.io/badge/MySQL_8-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+![Java](https://img.shields.io/badge/Java-17-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2.0-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)
+![Spring Cloud](https://img.shields.io/badge/Spring_Cloud-2023.0.3-6DB33F?style=for-the-badge&logo=spring&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.x-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-Auth-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
 ![OpenFeign](https://img.shields.io/badge/OpenFeign-3_Clients-6DB33F?style=for-the-badge&logo=spring&logoColor=white)
 ![Gmail](https://img.shields.io/badge/Gmail_SMTP-EA4335?style=for-the-badge&logo=gmail&logoColor=white)
 ![Swagger](https://img.shields.io/badge/Swagger_UI-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)
 
 <br/>
 
-![Port](https://img.shields.io/badge/PORT-8088-emerald?style=flat-square&color=059669)
-![DB](https://img.shields.io/badge/DB-record__db-emerald?style=flat-square&color=059669)
-![UC8](https://img.shields.io/badge/UC8-Record_Service-brightgreen?style=flat-square)
-![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
-![Scheduler](https://img.shields.io/badge/Scheduler-08:00_AM_Daily-orange?style=flat-square)
-![Feign](https://img.shields.io/badge/Feign-3_Service_Clients-blue?style=flat-square)
+> **MediBook** is a production-grade online medical appointment booking system built on a **microservices architecture** using Spring Boot, Netflix Eureka, API Gateway, RabbitMQ, and JWT authentication.
 
 </div>
 
 ---
 
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
 ## 📋 Table of Contents
 
-- [Overview](#-overview)
-- [Complete System Architecture](#-complete-system-architecture)
-- [Full Service Port Map](#-full-service-port-map)
-- [Record Service Flow](#-record-service-flow)
-- [Record Service Deep Dive](#-record-service-deep-dive)
-  - [Tech Stack](#tech-stack)
-  - [Project Structure](#project-structure)
-  - [Entity: MedicalRecord](#entity-medicalrecord)
-  - [DTOs](#dtos)
-  - [Three Feign Clients](#three-feign-clients)
-  - [Follow-Up Reminder Scheduler](#follow-up-reminder-scheduler)
-  - [Repository Queries](#repository-queries)
-  - [Business Logic Rules](#business-logic-rules)
-  - [Access Control Rules](#access-control-rules)
-- [API Endpoints Summary](#-api-endpoints-summary)
-- [API Testing via Gateway](#-api-testing-via-api-gateway)
-- [Error Responses](#-error-responses)
-- [Environment Variables](#-environment-variables)
-- [Running the Services](#-running-the-services)
-- [Database Setup](#-database-setup)
-- [Swagger UI](#-swagger-ui)
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
-## 🏥 Overview
-
-The **Record Service** is the **UC8** microservice in the MediBook Online Appointment Booking System. It is the **final step in the patient care journey** — after a patient's appointment is marked `COMPLETED`, the doctor creates a medical record capturing the diagnosis, prescription, clinical notes, and a follow-up date.
-
-```
-Appointment COMPLETED (UC4)
-        │
-        ▼
-Doctor creates MedicalRecord
-  → Feign → appointment-service (verify COMPLETED status)
-  → Saves: diagnosis, prescription, notes, attachmentUrl, followUpDate
-        │
-        ▼
-Every morning 8:00 AM — FollowUpReminderScheduler
-  → Finds all records where followUpDate = today
-  → Feign → auth-service (get patient name + email)
-  → Feign → notification-service (send EMAIL reminder)
-```
-
-**Key responsibilities:**
-
-- Create medical records **only for COMPLETED appointments** (enforced via Feign call)
-- Store diagnosis, prescription, clinical notes, S3 attachment URLs, follow-up dates
-- Enforce **one record per appointment** (unique constraint on `appointmentId`)
-- Provide patient and doctor views of records with proper access segmentation
-- Attach document URLs (lab reports, X-rays) to existing records
-- **`FollowUpReminderScheduler`** — runs daily at 08:00 AM, sends email reminders via `notification-service` Feign
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
-## 🏗️ Complete System Architecture
-
-```
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                         CLIENT (Browser / Mobile App)                       ║
-╚════════════════════════════════════╦════════════════════════════════════════╝
-                                     ║ All HTTP traffic
-                                     ▼
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                       API GATEWAY  :8080                                    ║
-║   • JwtAuthenticationFilter (Global)                                        ║
-║   • Forwards: X-User-Id · X-User-Role · X-User-Email                       ║
-║   • CORS: localhost:5173, localhost:5174                                     ║
-║   Routes:                                                                   ║
-║     /auth/**          → auth-service          :8081                         ║
-║     /providers/**     → provider-service      :8082                         ║
-║     /slots/**         → schedule-service      :8083                         ║
-║     /appointments/**  → appointment-service   :8084                         ║
-║     /payments/**      → payment-service       :8085                         ║
-║     /reviews/**       → review-service        :8086                         ║
-║     /notifications/** → notification-service  :8087                         ║
-║     /records/**       → record-service        :8088  ◄── THIS SERVICE       ║
-╚════════════════════════════════════╦════════════════════════════════════════╝
-                                     ║ Eureka lb://
-   ┌─────────────┬───────────────────┼──────────────────────────┐
-   ▼             ▼                   ▼                          ▼
-┌──────────┐ ┌────────────────┐ ┌────────────────┐  ┌───────────────────┐
-│auth-svc  │ │appointment-svc │ │notification-svc│  │  record-service   │
-│ :8081    │ │    :8084       │ │    :8087       │  │     :8088         │
-│ auth_db  │ │ appointment_db │ │notification_db │  │    record_db      │
-└────┬─────┘ └───────┬────────┘ └───────┬────────┘  └────────┬──────────┘
-     │               │                  │                     │
-     │◄──── Feign ───┤                  │◄─── Feign ──────────┤
-     │  GET /auth/   │                  │  POST /notifications/│
-     │  profile/{id} │                  │  send               │
-     │               │                  │                     │
-     │◄──────────────┼──── Feign ───────┘                     │
-     │           GET /appointments/{id}                       │
-     │           (verify COMPLETED status)                    │
-     │                                                        │
-     │◄───────────────────── Feign (UserClient) ──────────────┘
-         GET /auth/profile/{userId}
-         (get patient name for scheduler)
-
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                       EUREKA SERVER  :8761                                  ║
-║             Service Registry  ·  admin / medibook123                        ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-
- ┌──────────────────────────────────────────────────────────────────┐
- │           FollowUpReminderScheduler  @Scheduled(cron = "0 0 8 * * *")      │
- │           Every day at 08:00 AM                                  │
- │                                                                  │
- │  1. RecordService.getFollowUpRecords(today)  [local call]        │
- │  2. For each record with followUpDate = today:                   │
- │     a. UserClient → auth-service  GET /auth/profile/{patientId} │
- │     b. NotificationClient → notification-service                │
- │           POST /notifications/send  (channel = EMAIL)            │
- └──────────────────────────────────────────────────────────────────┘
-```
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
-## 🗺️ Full Service Port Map
-
-| Service | Port | Database | Role |
-|---|---|---|---|
-| `eureka-server` | **8761** | — | Service registry — Start **first** |
-| `api-gateway` | **8080** | — | Single entry point — Start **second** |
-| `auth-service` | **8081** | `auth_db` | JWT, OTP, OAuth2, user profiles |
-| `provider-service` | **8082** | `provider_db` | Doctor profiles (UC2) |
-| `schedule-service` | **8083** | `schedule_db` | Availability slots (UC3) |
-| `appointment-service` | **8084** | `appointment_db` | Appointments (UC4) — record-service calls this |
-| `payment-service` | **8085** | `payment_db` | Payments (UC5) |
-| `review-service` | **8086** | `review_db` | Reviews (UC6) |
-| `notification-service` | **8087** | `notification_db` | Notifications (UC7) — record-service calls this |
-| `record-service` | **8088** | `record_db` | **← This service (UC8)** |
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
-## 🔄 Record Service Flow
-
-### Primary Flow — Creating a Medical Record
-
-```
-                    ┌────────────────────────┐
-                    │   Doctor Dashboard     │
-                    │  Appointment = COMPLETED│
-                    └───────────┬────────────┘
-                                │ POST /records/create
-                                ▼
-                    ┌────────────────────────┐
-                    │  RecordResource.java   │
-                    │  createRecord()        │
-                    └───────────┬────────────┘
-                                │
-                    ┌───────────▼────────────┐
-                    │ RecordServiceImpl.java │
-                    │                        │
-                    │ 1. Feign call          │
-                    │    → appointment-svc   │
-                    │    GET /appointments/  │
-                    │    {appointmentId}     │
-                    │                        │
-                    │ 2. Verify status       │
-                    │    == "COMPLETED"      │
-                    │    (400 if not)        │
-                    │                        │
-                    │ 3. Check no duplicate  │
-                    │    (409 if exists)     │
-                    │                        │
-                    │ 4. Validate diagnosis  │
-                    │    not empty           │
-                    │                        │
-                    │ 5. Validate followUp   │
-                    │    not in past         │
-                    │                        │
-                    │ 6. Save MedicalRecord  │
-                    │    → record_db         │
-                    └───────────┬────────────┘
-                                │
-                    ┌───────────▼────────────┐
-                    │  201 Created           │
-                    │  MedicalRecord JSON    │
-                    └────────────────────────┘
-```
-
-### Follow-Up Reminder Flow (Automated Daily)
-
-```
-  08:00 AM every day
-         │
-  @Scheduled(cron = "0 0 8 * * *")
-         │
-  FollowUpReminderScheduler.sendFollowUpReminders()
-         │
-         ├─── recordService.getFollowUpRecords(today)   [local]
-         │           │
-         │           └── RecordRepository.findByFollowUpDate(today)
-         │
-         ▼
-  For each MedicalRecord where followUpDate = today:
-         │
-         ├─── UserClient Feign → auth-service
-         │    GET /auth/profile/{patientId}
-         │    → gets patient.fullName, patient.email
-         │
-         └─── NotificationClient Feign → notification-service
-              POST /notifications/send
-              {
-                recipientId: patientId,
-                type: "FOLLOWUP",
-                title: "Follow-Up Reminder 🏥",
-                message: "Dear {name}, today is your scheduled follow-up...",
-                channel: "EMAIL",
-                relatedId: recordId,
-                relatedType: "RECORD"
-              }
-              → notification-service sends Gmail email to patient
-```
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
-## 🔬 Record Service Deep Dive
-
-### Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Language | Java 17 |
-| Framework | Spring Boot 3.2.0 |
-| Cloud | Spring Cloud 2023.0.0 (Eureka Client, OpenFeign) |
-| Database | MySQL 8 — `record_db` |
-| ORM | Spring Data JPA / Hibernate |
-| Feign Clients | 3 clients: `AppointmentClient`, `UserClient`, `NotificationClient` |
-| Email | Spring Boot Mail + JavaMailSender (Gmail SMTP, used by scheduler) |
-| Security | Spring Security (stateless, all routes permitAll — JWT at gateway) |
-| Scheduler | Spring `@EnableScheduling` + `@Scheduled` (daily 08:00 AM) |
-| Docs | Springdoc OpenAPI 2.3.0 (Swagger UI) |
-| Build | Maven 3 |
-| Lombok | 1.18.30 |
-| JWT | JJWT 0.11.5 |
-
-### Project Structure
-
-```
-record-service/
-└── src/main/java/com/medibook/record/
-    ├── RecordServiceApplication.java        # Main — @EnableScheduling, @EnableFeignClients
-    ├── client/
-    │   ├── AppointmentClient.java           # Feign → appointment-service (verify COMPLETED)
-    │   ├── NotificationClient.java          # Feign → notification-service (send email reminder)
-    │   └── UserClient.java                  # Feign → auth-service (get patient profile)
-    ├── config/
-    │   └── SecurityConfig.java              # Stateless, permitAll (JWT validated at gateway)
-    ├── dto/
-    │   ├── AppointmentDto.java              # Feign response: appointmentId, patientId, providerId, status
-    │   ├── NotificationDto.java             # Feign request to notification-service
-    │   ├── RecordRequest.java               # REST API request DTO (with validation)
-    │   └── UserDto.java                     # Feign response: userId, fullName, email, phone, role
-    ├── entity/
-    │   └── MedicalRecord.java               # JPA entity → medical_records table (unique on appointmentId)
-    ├── exception/
-    │   ├── BadRequestException.java         # 400
-    │   ├── DuplicateResourceException.java  # 409 — duplicate appointmentId
-    │   ├── ResourceNotFoundException.java   # 404
-    │   ├── ForbiddenException.java          # 403
-    │   ├── UnauthorizedException.java       # 401
-    │   ├── ErrorResponse.java               # Standardized error body
-    │   └── GlobalExceptionHandler.java      # @ControllerAdvice catches all
-    ├── repository/
-    │   └── RecordRepository.java            # JPA repo with 9 custom queries
-    ├── resource/
-    │   └── RecordResource.java              # REST controller — /records/**
-    ├── scheduler/
-    │   └── FollowUpReminderScheduler.java   # Cron 08:00 AM daily — send email follow-up reminders
-    └── service/
-        ├── RecordService.java               # Interface contract (11 methods)
-        └── impl/
-            └── RecordServiceImpl.java       # Business logic implementation
-```
-
-### Entity: MedicalRecord
-
-Maps to the `medical_records` table in `record_db`.
-
-| Column | Type | Nullable | Constraint | Description |
-|---|---|---|---|---|
-| `recordId` | INT (PK, AI) | No | — | Auto-generated primary key |
-| `appointmentId` | INT | No | **UNIQUE** | One record per appointment — enforced by DB unique constraint |
-| `patientId` | INT | No | — | Patient who received treatment (from UC1) |
-| `providerId` | INT | No | — | Doctor who created this record (from UC2) |
-| `diagnosis` | VARCHAR | No | — | Primary medical finding e.g. "Viral chest infection" |
-| `prescription` | VARCHAR | Yes | — | Full medicine prescription text |
-| `notes` | TEXT | Yes | — | Extra clinical observations |
-| `attachmentUrl` | VARCHAR | Yes | — | S3 URL of lab report / X-ray document |
-| `followUpDate` | DATE | Yes | — | When patient should revisit — triggers email reminder |
-| `createdAt` | DATETIME | No | `updatable=false` | Set via `@PrePersist` — HIPAA audit trail |
-| `updatedAt` | DATETIME | Yes | — | Updated via `@PreUpdate` — tracks doctor edits |
-
-> **Key Design:** `appointmentId` has a `unique = true` DB constraint. This means `DuplicateResourceException` (409) is thrown if a doctor attempts to create a second record for the same appointment.
-
-### DTOs
-
-**`RecordRequest`** — doctor's medical record creation / update form:
-
-| Field | Type | Required | Validation | Description |
-|---|---|---|---|---|
-| `appointmentId` | int | Yes | `@NotNull` | Links record to the completed appointment |
-| `patientId` | int | Yes | `@NotNull` | Patient receiving the record |
-| `providerId` | int | Yes | `@NotNull` | Doctor creating the record |
-| `diagnosis` | String | Yes | `@NotBlank` | Primary clinical diagnosis |
-| `prescription` | String | No | — | Full medicine prescription |
-| `notes` | String | No | — | Additional clinical observations |
-| `attachmentUrl` | String | No | — | S3/URL of attached lab report or scan |
-| `followUpDate` | LocalDate | No | — | Must not be in the past if set |
-
-**`AppointmentDto`** — Feign response from `appointment-service`:
-
-| Field | Description |
-|---|---|
-| `appointmentId` | The appointment ID |
-| `patientId` | Patient involved |
-| `providerId` | Doctor involved |
-| `status` | Must be `COMPLETED` for record creation to proceed |
-
-**`NotificationDto`** — Feign request sent to `notification-service`:
-
-| Field | Value in Scheduler |
-|---|---|
-| `recipientId` | `record.getPatientId()` |
-| `type` | `"FOLLOWUP"` |
-| `title` | `"Follow-Up Reminder 🏥"` |
-| `message` | `"Dear {name}, today is your scheduled follow-up..."` |
-| `channel` | `"EMAIL"` |
-| `relatedId` | `record.getRecordId()` |
-| `relatedType` | `"RECORD"` |
-
-**`UserDto`** — Feign response from `auth-service`:
-
-| Field | Description |
-|---|---|
-| `userId` | User ID |
-| `fullName` | Patient's full name (used in email body) |
-| `email` | For notification delivery |
-| `phone` | Phone number |
-| `role` | `PATIENT` / `DOCTOR` / `ADMIN` |
-
-### Three Feign Clients
-
-| Client | Service | Endpoint | When Called |
-|---|---|---|---|
-| `AppointmentClient` | `appointment-service` | `GET /appointments/{appointmentId}` | `createRecord()` — validates appointment is COMPLETED before allowing record creation |
-| `UserClient` | `auth-service` | `GET /auth/profile/{userId}` | `FollowUpReminderScheduler` — gets patient name and email for the reminder message |
-| `NotificationClient` | `notification-service` | `POST /notifications/send` | `FollowUpReminderScheduler` — triggers EMAIL notification delivery |
-
-### Follow-Up Reminder Scheduler
-
-```java
-@Scheduled(cron = "0 0 8 * * *")  // 08:00:00 every morning
-public void sendFollowUpReminders()
-```
-
-**Cron breakdown:** `second=0, minute=0, hour=8, day=*, month=*, weekday=*`
-
-**Full execution logic:**
-1. `recordService.getFollowUpRecords(LocalDate.now())` — finds all `MedicalRecord` where `followUpDate = today`
-2. For each record found:
-   - Calls `UserClient` → `auth-service` to get `patient.fullName` and `patient.email`
-   - Builds a `NotificationDto` with `type=FOLLOWUP`, `channel=EMAIL`
-   - Calls `NotificationClient` → `notification-service` POST `/notifications/send`
-   - `notification-service` then sends a real Gmail email to the patient
-3. Individual record failures are caught and logged — one failure does **not** stop the rest
-4. Fatal outer errors are caught — scheduler never crashes, runs again next morning
-
-### Repository Queries
-
-| Method | Query Type | Used For |
-|---|---|---|
-| `findByAppointmentId(int)` | Derived | Get record by appointment, also used in duplicate check |
-| `existsByAppointmentId(int)` | Derived | Duplicate check before creating |
-| `findByPatientIdOrderByCreatedAtDesc(int)` | Derived | Patient's records — newest first |
-| `findByProviderId(int)` | Derived | Doctor's created records |
-| `findByFollowUpDate(LocalDate)` | Derived | Scheduler daily run — today's follow-ups |
-| `findUpcomingFollowUps(patientId, today)` | `@Query` JPQL | Patient dashboard upcoming follow-ups |
-| `countByPatientId(int)` | Derived | Patient profile record count |
-| `findByRecordId(int)` | Derived | Get record by PK |
-| `deleteByRecordId(int)` | `@Modifying` JPQL | Admin delete |
-
-### Business Logic Rules
-
-| Operation | Guard Rules |
-|---|---|
-| **Create Record** | Appointment must be `COMPLETED` (Feign call); no duplicate record for same appointment; diagnosis cannot be blank; `followUpDate` cannot be in the past |
-| **Update Record** | Diagnosis cannot be empty on update; `followUpDate` cannot be in the past |
-| **Attach Document** | `attachmentUrl` cannot be null or blank |
-| **Get Follow-Up Records** | Date cannot be null |
-| **Delete Record** | Record must exist (404 if not found) |
-
-### Access Control Rules
-
-The service implements three-tier access segmentation per PDF requirements:
-
-| Role | Access Rule |
-|---|---|
-| **Patient** | Can view only records where `patientId` matches their own user ID |
-| **Doctor** | Can view only records where `providerId` matches their own provider ID |
-| **Admin** | Read-only access to all records; can delete |
-
-> Note: These rules are enforced at the application/gateway level. The service itself `permitAll` — the JWT forwarded headers (`X-User-Id`, `X-User-Role`) enable the frontend/gateway to enforce the access rules.
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
-## 📡 API Endpoints Summary
-
-**Base URL (via gateway):** `http://localhost:8080`
-**Base URL (direct):** `http://localhost:8088`
-
-All endpoints are prefixed with `/records`.
-
-| Method | Endpoint | Auth | Who | Description |
-|---|---|---|---|---|
-| `POST` | `/records/create` | Required | Doctor | Create a medical record for a COMPLETED appointment |
-| `GET` | `/records/appointment/{appointmentId}` | Required | Doctor / Patient | Get record linked to a specific appointment |
-| `GET` | `/records/patient/{patientId}` | Required | Patient | All records for a patient (newest first) |
-| `GET` | `/records/provider/{providerId}` | Required | Doctor | All records created by a doctor |
-| `GET` | `/records/{recordId}` | Required | Doctor / Admin | Get a single record by ID |
-| `PUT` | `/records/{recordId}` | Required | Doctor | Update an existing record |
-| `DELETE` | `/records/{recordId}` | Required | Admin | Delete a record permanently |
-| `PUT` | `/records/{recordId}/attach?url=` | Required | Doctor | Attach document URL (S3 lab report, X-ray) |
-| `GET` | `/records/patient/{patientId}/followups` | Required | Patient / Doctor | Get upcoming follow-up records |
-| `GET` | `/records/followups/today` | Required | System / Admin | Get all records with followUpDate = today |
-| `GET` | `/records/patient/{patientId}/count` | Required | Patient / Admin | Total medical record count for patient |
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
-## 🧪 API Testing via API Gateway
-
-> All examples use `http://localhost:8080` (API Gateway).
-> Replace `<YOUR_JWT_TOKEN>` with a token from auth-service login.
+- [🏗️ Architecture Overview](#architecture-overview)
+- [🚀 Services](#services)
+- [⚙️ Prerequisites & Setup](#prerequisites--setup)
+- [🔐 Environment Variables](#environment-variables)
+- [▶️ Startup Order](#startup-order)
+- [🔑 Auth Service](#-auth-service--port-8081)
+- [👨‍⚕️ Provider Service](#-provider-service--port-8082)
+- [📅 Schedule Service](#-schedule-service--port-8083)
+- [🗓️ Appointment Service](#-appointment-service--port-8084)
+- [💳 Payment Service](#-payment-service--port-8085)
+- [⭐ Review Service](#-review-service--port-8086)
+- [🔔 Notification Service](#-notification-service--port-8087)
+- [📋 Record Service](#-record-service--port-8088)
+- [🛡️ Admin Service](#-admin-service--port-8089)
+- [🌐 API Gateway](#-api-gateway--port-8080)
+- [📊 Complete API Reference](#complete-api-reference)
 
 ---
 
-### 🔐 Step 0 — Get JWT Tokens
+## Architecture Overview
 
-**Register a doctor:**
-
-```bash
-curl -X POST http://localhost:8080/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Dr. Arjun Sharma",
-    "email": "arjun.sharma@medibook.com",
-    "password": "Doctor@123",
-    "phone": "9876543210",
-    "role": "DOCTOR"
-  }'
 ```
-
-**Login to get token:**
-
-```bash
-curl -X POST http://localhost:8080/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "arjun.sharma@medibook.com",
-    "password": "Doctor@123"
-  }'
-```
-
-**Sample response:**
-
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiJ9...",
-  "type": "Bearer",
-  "userId": 1,
-  "email": "arjun.sharma@medibook.com",
-  "role": "DOCTOR"
-}
-```
-
-> **Pre-requisite:** Before calling `POST /records/create`, the appointment must already be `COMPLETED`. Use `PUT /appointments/{id}/complete` first (see UC4 README).
-
----
-
-### 1️⃣ Create a Medical Record
-
-**`POST /records/create`**
-
-Doctor creates a medical record after marking an appointment as COMPLETED. The service calls `appointment-service` via Feign to verify the appointment status before saving.
-
-```bash
-curl -X POST http://localhost:8080/records/create \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <DOCTOR_TOKEN>" \
-  -d '{
-    "appointmentId": 1,
-    "patientId": 2,
-    "providerId": 1,
-    "diagnosis": "Viral Upper Respiratory Tract Infection",
-    "prescription": "Amoxicillin 500mg — twice daily for 5 days. Paracetamol 500mg — as needed for fever.",
-    "notes": "Patient should rest, drink plenty of fluids, and avoid cold exposure. Return if symptoms worsen.",
-    "attachmentUrl": null,
-    "followUpDate": "2026-05-22"
-  }'
-```
-
-**Expected Response — 201 Created:**
-
-```json
-{
-  "recordId": 1,
-  "appointmentId": 1,
-  "patientId": 2,
-  "providerId": 1,
-  "diagnosis": "Viral Upper Respiratory Tract Infection",
-  "prescription": "Amoxicillin 500mg — twice daily for 5 days. Paracetamol 500mg — as needed for fever.",
-  "notes": "Patient should rest, drink plenty of fluids, and avoid cold exposure. Return if symptoms worsen.",
-  "attachmentUrl": null,
-  "followUpDate": "2026-05-22",
-  "createdAt": "2026-04-22T15:00:00",
-  "updatedAt": "2026-04-22T15:00:00"
-}
-```
-
-> **Side effect:** On `2026-05-22` at 08:00 AM, `FollowUpReminderScheduler` will automatically send an email reminder to the patient.
-
----
-
-### 2️⃣ Create a Record Without Follow-Up
-
-**`POST /records/create`**
-
-Simple consultation with no follow-up required.
-
-```bash
-curl -X POST http://localhost:8080/records/create \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <DOCTOR_TOKEN>" \
-  -d '{
-    "appointmentId": 2,
-    "patientId": 3,
-    "providerId": 1,
-    "diagnosis": "Tension Headache",
-    "prescription": "Ibuprofen 400mg after meals for 3 days. Avoid screen time.",
-    "notes": "Advise stress reduction and proper sleep hygiene.",
-    "followUpDate": null
-  }'
-```
-
-**Expected Response — 201 Created:**
-
-```json
-{
-  "recordId": 2,
-  "appointmentId": 2,
-  "patientId": 3,
-  "providerId": 1,
-  "diagnosis": "Tension Headache",
-  "prescription": "Ibuprofen 400mg after meals for 3 days. Avoid screen time.",
-  "notes": "Advise stress reduction and proper sleep hygiene.",
-  "attachmentUrl": null,
-  "followUpDate": null,
-  "createdAt": "2026-04-22T15:05:00",
-  "updatedAt": "2026-04-22T15:05:00"
-}
+┌────────────────────────────────────────────────────────────────────┐
+│                        MEDIBOOK BACKEND                            │
+│                                                                    │
+│   React Frontend (5173)                                            │
+│          │                                                         │
+│          ▼                                                         │
+│   ┌─────────────┐          ┌──────────────────┐                    │
+│   │ API Gateway │────────▶|  Eureka Server   │                    │
+│   │   :8080     │          │     :8761        │                    │
+│   └──────┬──────┘          └──────────────────┘                    │
+│          │                                                         │
+│    ┌─────┴──────────────────────────────────────┐                  │
+│    │               Routes to:                   │                  │
+│    ▼         ▼         ▼         ▼         ▼    │                  │
+│  Auth    Provider  Schedule  Appoint  Payment   │                  │
+│  :8081   :8082     :8083     :8084    :8085     │                  │
+│                                                 │                  │
+│    ▼         ▼         ▼         ▼              │                  │
+│  Review  Notif    Record    Admin               │                  │
+│  :8086   :8087    :8088     :8089               │                  │
+│                                                 │                  │
+│         ┌──────────────┐                        │                  │
+│         │   RabbitMQ   │ ← Async Events         │                  │
+│         │    :5672     │   (Appointment→Notif)  │                  │
+│         └──────────────┘                        │                  │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### 3️⃣ Get Medical Record by Appointment ID
+## 🚀 Services
 
-**`GET /records/appointment/{appointmentId}`**
+| Service | Port | Database | Description |
+|---------|------|----------|-------------|
+| 🔭 **Eureka Server** | `8761` | — | Service discovery & registry |
+| 🌐 **API Gateway** | `8080` | — | Single entry point, JWT validation, routing |
+| 🔐 **Auth Service** | `8081` | `auth_db` | User registration, login, OTP, JWT, OAuth2 |
+| 👨‍⚕️ **Provider Service** | `8082` | `provider_db` | Doctor profiles, verification, search |
+| 📅 **Schedule Service** | `8083` | `schedule_db` | Slot management, recurring slots |
+| 🗓️ **Appointment Service** | `8084` | `appointment_db` | Booking, cancellation, status management |
+| 💳 **Payment Service** | `8085` | `payment_db` | Payment initiation, verification, refunds |
+| ⭐ **Review Service** | `8086` | `review_db` | Patient reviews, ratings |
+| 🔔 **Notification Service** | `8087` | `notification_db` | Email & in-app notifications via RabbitMQ |
+| 📋 **Record Service** | `8088` | `record_db` | Medical records, prescriptions, follow-ups |
+| 🛡️ **Admin Service** | `8089` | `auth_db` (shared) | Admin seeding, user management |
 
-Fetch the medical record linked to a specific appointment. Used when a patient opens their appointment and clicks "View Medical Record."
+---
+
+## ⚙️ Prerequisites & Setup
 
 ```bash
-curl -X GET http://localhost:8080/records/appointment/1 \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
+# Required software
+Java 17+
+Maven 3.8+
+MySQL 8.0+
+RabbitMQ 3.x
 ```
 
-**Expected Response — 200 OK:**
+### Clone & Build
 
-```json
-{
-  "recordId": 1,
-  "appointmentId": 1,
-  "patientId": 2,
-  "providerId": 1,
-  "diagnosis": "Viral Upper Respiratory Tract Infection",
-  "prescription": "Amoxicillin 500mg — twice daily for 5 days. Paracetamol 500mg — as needed for fever.",
-  "notes": "Patient should rest, drink plenty of fluids, and avoid cold exposure. Return if symptoms worsen.",
-  "attachmentUrl": null,
-  "followUpDate": "2026-05-22",
-  "createdAt": "2026-04-22T15:00:00",
-  "updatedAt": "2026-04-22T15:00:00"
-}
+```bash
+git clone https://github.com/your-username/medibook-backend.git
+cd medibook-backend
+
+# Build all modules
+mvn clean install -DskipTests
+```
+
+### MySQL Setup
+
+```sql
+-- Run once to create the DB user
+CREATE USER 'medibook_user'@'localhost' IDENTIFIED BY 'medibook_pass';
+GRANT ALL PRIVILEGES ON *.* TO 'medibook_user'@'localhost';
+FLUSH PRIVILEGES;
+
+-- Databases are auto-created by each service on first run (createDatabaseIfNotExist=true)
 ```
 
 ---
 
-### 4️⃣ Get All Medical Records for a Patient
+## 🔐 Environment Variables
 
-**`GET /records/patient/{patientId}`**
+Create a `.env` file or set these in your system / IDE run configuration:
 
-Patient views their complete medical history — all records, newest first. Access-controlled: patient should only see records matching their own `patientId`.
+```env
+# Database
+DB_USERNAME=medibook_user
+DB_PASSWORD=medibook_pass
 
-```bash
-curl -X GET http://localhost:8080/records/patient/2 \
-  -H "Authorization: Bearer <PATIENT_TOKEN>"
-```
+# JWT (must be same across ALL services — minimum 256-bit key)
+JWT_SECRET=MediBookSuperSecretKey2024MustBeAtLeast256BitsLong!!
 
-**Expected Response — 200 OK:**
+# Mail (Gmail App Password — NOT your Gmail password)
+MAIL_USERNAME=your-gmail@gmail.com
+MAIL_PASSWORD=your-16-char-app-password
 
-```json
-[
-  {
-    "recordId": 1,
-    "appointmentId": 1,
-    "patientId": 2,
-    "providerId": 1,
-    "diagnosis": "Viral Upper Respiratory Tract Infection",
-    "prescription": "Amoxicillin 500mg — twice daily for 5 days.",
-    "notes": "Rest, fluids, avoid cold.",
-    "attachmentUrl": null,
-    "followUpDate": "2026-05-22",
-    "createdAt": "2026-04-22T15:00:00",
-    "updatedAt": "2026-04-22T15:00:00"
-  },
-  {
-    "recordId": 5,
-    "appointmentId": 7,
-    "patientId": 2,
-    "providerId": 2,
-    "diagnosis": "Type 2 Diabetes — Initial Diagnosis",
-    "prescription": "Metformin 500mg twice daily with meals.",
-    "notes": "HbA1c: 7.8%. Follow low-sugar diet. Weekly glucose monitoring.",
-    "attachmentUrl": "https://s3.amazonaws.com/medibook/lab-report-hba1c.pdf",
-    "followUpDate": "2026-06-01",
-    "createdAt": "2026-04-10T09:30:00",
-    "updatedAt": "2026-04-10T09:30:00"
-  }
-]
+# Google OAuth2
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Eureka (optional — defaults are set)
+EUREKA_DEFAULT_ZONE=http://admin:medibook123@localhost:8761/eureka/
 ```
 
 ---
 
-### 5️⃣ Get All Records Created by a Doctor
+## ▶️ Startup Order
 
-**`GET /records/provider/{providerId}`**
-
-Doctor views all the medical records they have created. Used on the doctor's dashboard under "My Records."
+> ⚠️ **Must start in this exact order** — each service registers with Eureka
 
 ```bash
-curl -X GET http://localhost:8080/records/provider/1 \
-  -H "Authorization: Bearer <DOCTOR_TOKEN>"
-```
-
-**Expected Response — 200 OK:**
-
-```json
-[
-  {
-    "recordId": 1,
-    "appointmentId": 1,
-    "patientId": 2,
-    "providerId": 1,
-    "diagnosis": "Viral Upper Respiratory Tract Infection",
-    "prescription": "Amoxicillin 500mg — twice daily for 5 days.",
-    "followUpDate": "2026-05-22",
-    "createdAt": "2026-04-22T15:00:00",
-    "updatedAt": "2026-04-22T15:00:00"
-  },
-  {
-    "recordId": 2,
-    "appointmentId": 2,
-    "patientId": 3,
-    "providerId": 1,
-    "diagnosis": "Tension Headache",
-    "prescription": "Ibuprofen 400mg after meals for 3 days.",
-    "followUpDate": null,
-    "createdAt": "2026-04-22T15:05:00",
-    "updatedAt": "2026-04-22T15:05:00"
-  }
-]
-```
-
----
-
-### 6️⃣ Get a Single Record by ID
-
-**`GET /records/{recordId}`**
-
-Fetch a specific medical record by its primary key. Used for admin audits and doctor record updates.
-
-```bash
-curl -X GET http://localhost:8080/records/1 \
-  -H "Authorization: Bearer <YOUR_JWT_TOKEN>"
-```
-
-**Expected Response — 200 OK:**
-
-```json
-{
-  "recordId": 1,
-  "appointmentId": 1,
-  "patientId": 2,
-  "providerId": 1,
-  "diagnosis": "Viral Upper Respiratory Tract Infection",
-  "prescription": "Amoxicillin 500mg — twice daily for 5 days. Paracetamol 500mg — as needed for fever.",
-  "notes": "Patient should rest, drink plenty of fluids, and avoid cold exposure. Return if symptoms worsen.",
-  "attachmentUrl": null,
-  "followUpDate": "2026-05-22",
-  "createdAt": "2026-04-22T15:00:00",
-  "updatedAt": "2026-04-22T15:00:00"
-}
-```
-
----
-
-### 7️⃣ Update a Medical Record
-
-**`PUT /records/{recordId}`**
-
-Doctor edits an existing record — updates diagnosis, prescription, notes, or changes the follow-up date. Follow-up date cannot be in the past.
-
-```bash
-curl -X PUT http://localhost:8080/records/1 \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <DOCTOR_TOKEN>" \
-  -d '{
-    "appointmentId": 1,
-    "patientId": 2,
-    "providerId": 1,
-    "diagnosis": "Viral Upper Respiratory Tract Infection with Secondary Bacterial Component",
-    "prescription": "Amoxicillin-Clavulanate 625mg — twice daily for 7 days. Paracetamol 500mg — as needed.",
-    "notes": "Patient condition worsened slightly. Extended antibiotic course. Rest for 5 days.",
-    "attachmentUrl": null,
-    "followUpDate": "2026-05-29"
-  }'
-```
-
-**Expected Response — 200 OK:**
-
-```json
-{
-  "recordId": 1,
-  "appointmentId": 1,
-  "patientId": 2,
-  "providerId": 1,
-  "diagnosis": "Viral Upper Respiratory Tract Infection with Secondary Bacterial Component",
-  "prescription": "Amoxicillin-Clavulanate 625mg — twice daily for 7 days. Paracetamol 500mg — as needed.",
-  "notes": "Patient condition worsened slightly. Extended antibiotic course. Rest for 5 days.",
-  "attachmentUrl": null,
-  "followUpDate": "2026-05-29",
-  "createdAt": "2026-04-22T15:00:00",
-  "updatedAt": "2026-04-22T15:30:00"
-}
-```
-
----
-
-### 8️⃣ Attach a Document (Lab Report / X-Ray)
-
-**`PUT /records/{recordId}/attach?url=`**
-
-Doctor uploads a lab report or X-ray to S3 and attaches the URL to the medical record. In production this would be an S3 pre-signed URL.
-
-```bash
-curl -X PUT "http://localhost:8080/records/1/attach?url=https://s3.amazonaws.com/medibook/records/chest-xray-patient2-apr22.pdf" \
-  -H "Authorization: Bearer <DOCTOR_TOKEN>"
-```
-
-**Expected Response — 200 OK:**
-
-```json
-{
-  "message": "Document attached successfully.",
-  "attachmentUrl": "https://s3.amazonaws.com/medibook/records/chest-xray-patient2-apr22.pdf"
-}
-```
-
----
-
-### 9️⃣ Get Upcoming Follow-Up Records for a Patient
-
-**`GET /records/patient/{patientId}/followups`**
-
-Returns all records for a patient where `followUpDate >= today`. Shown on the patient dashboard as "Upcoming Follow-Ups."
-
-```bash
-curl -X GET http://localhost:8080/records/patient/2/followups \
-  -H "Authorization: Bearer <PATIENT_TOKEN>"
-```
-
-**Expected Response — 200 OK:**
-
-```json
-[
-  {
-    "recordId": 1,
-    "appointmentId": 1,
-    "patientId": 2,
-    "providerId": 1,
-    "diagnosis": "Viral Upper Respiratory Tract Infection",
-    "prescription": "Amoxicillin 500mg — twice daily for 5 days.",
-    "notes": "Rest, fluids, avoid cold.",
-    "attachmentUrl": "https://s3.amazonaws.com/medibook/records/chest-xray-patient2-apr22.pdf",
-    "followUpDate": "2026-05-29",
-    "createdAt": "2026-04-22T15:00:00",
-    "updatedAt": "2026-04-22T15:30:00"
-  },
-  {
-    "recordId": 5,
-    "appointmentId": 7,
-    "patientId": 2,
-    "providerId": 2,
-    "diagnosis": "Type 2 Diabetes — Initial Diagnosis",
-    "followUpDate": "2026-06-01",
-    "createdAt": "2026-04-10T09:30:00"
-  }
-]
-```
-
----
-
-### 🔟 Get Today's Follow-Up Records (System / Admin)
-
-**`GET /records/followups/today`**
-
-Returns all records where `followUpDate = today`. This is exactly what `FollowUpReminderScheduler` calls at 08:00 AM to determine which patients to email.
-
-```bash
-curl -X GET http://localhost:8080/records/followups/today \
-  -H "Authorization: Bearer <ADMIN_TOKEN>"
-```
-
-**Expected Response — 200 OK (on 2026-05-22):**
-
-```json
-[
-  {
-    "recordId": 1,
-    "appointmentId": 1,
-    "patientId": 2,
-    "providerId": 1,
-    "diagnosis": "Viral Upper Respiratory Tract Infection",
-    "followUpDate": "2026-05-22",
-    "createdAt": "2026-04-22T15:00:00"
-  }
-]
-```
-
-> If no records have `followUpDate = today`, returns an empty array `[]`.
-
----
-
-### 1️⃣1️⃣ Get Record Count for a Patient
-
-**`GET /records/patient/{patientId}/count`**
-
-Returns the total number of medical records a patient has. Used on patient profile pages.
-
-```bash
-curl -X GET http://localhost:8080/records/patient/2/count \
-  -H "Authorization: Bearer <PATIENT_TOKEN>"
-```
-
-**Expected Response — 200 OK:**
-
-```json
-{
-  "patientId": 2,
-  "totalRecords": 5
-}
-```
-
----
-
-### 1️⃣2️⃣ Delete a Medical Record (Admin Only)
-
-**`DELETE /records/{recordId}`**
-
-Permanently deletes a medical record. Only admins should have access to this endpoint.
-
-```bash
-curl -X DELETE http://localhost:8080/records/3 \
-  -H "Authorization: Bearer <ADMIN_TOKEN>"
-```
-
-**Expected Response — 200 OK:**
-
-```json
-{
-  "message": "Medical record deleted successfully."
-}
-```
-
----
-
-### 1️⃣3️⃣ Full End-to-End Flow Test
-
-Complete sequence from appointment completion to medical record with follow-up:
-
-```bash
-# Step 1 — Complete the appointment (appointment-service UC4)
-curl -X PUT http://localhost:8080/appointments/1/complete \
-  -H "Authorization: Bearer <DOCTOR_TOKEN>"
-
-# Step 2 — Create medical record (record-service UC8)
-curl -X POST http://localhost:8080/records/create \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <DOCTOR_TOKEN>" \
-  -d '{
-    "appointmentId": 1,
-    "patientId": 2,
-    "providerId": 1,
-    "diagnosis": "Hypertension Stage 1",
-    "prescription": "Amlodipine 5mg once daily. Low-sodium diet.",
-    "notes": "BP: 145/92. Monitor weekly.",
-    "followUpDate": "2026-05-22"
-  }'
-
-# Step 3 — Patient views their records
-curl -X GET http://localhost:8080/records/patient/2 \
-  -H "Authorization: Bearer <PATIENT_TOKEN>"
-
-# Step 4 — Doctor attaches blood test report
-curl -X PUT "http://localhost:8080/records/1/attach?url=https://s3.amazonaws.com/medibook/bp-test.pdf" \
-  -H "Authorization: Bearer <DOCTOR_TOKEN>"
-
-# Step 5 — Patient checks upcoming follow-ups
-curl -X GET http://localhost:8080/records/patient/2/followups \
-  -H "Authorization: Bearer <PATIENT_TOKEN>"
-
-# Step 6 — (Automatic at 08:00 AM on 2026-05-22)
-# FollowUpReminderScheduler runs:
-#   → Finds record #1 with followUpDate = today
-#   → Feign → auth-service: gets patient.fullName, patient.email
-#   → Feign → notification-service: sends EMAIL to patient
-#   Patient receives: "Dear Priya, today is your scheduled follow-up..."
-```
-
----
-
-### 1️⃣4️⃣ Test Error — Appointment Not Completed
-
-Attempting to create a record for an appointment that isn't `COMPLETED` yet:
-
-```bash
-curl -X POST http://localhost:8080/records/create \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <DOCTOR_TOKEN>" \
-  -d '{
-    "appointmentId": 99,
-    "patientId": 2,
-    "providerId": 1,
-    "diagnosis": "Test diagnosis"
-  }'
-```
-
-**Expected Response — 400 Bad Request:**
-
-```json
-{
-  "status": 400,
-  "error": "Bad Request",
-  "message": "Medical record can only be created for COMPLETED appointments. Status: SCHEDULED",
-  "timestamp": "2026-04-22T16:00:00"
-}
-```
-
----
-
-### 1️⃣5️⃣ Test Error — Duplicate Record
-
-Attempting to create a second record for the same appointment:
-
-```bash
-curl -X POST http://localhost:8080/records/create \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <DOCTOR_TOKEN>" \
-  -d '{
-    "appointmentId": 1,
-    "patientId": 2,
-    "providerId": 1,
-    "diagnosis": "Second attempt for same appointment"
-  }'
-```
-
-**Expected Response — 409 Conflict:**
-
-```json
-{
-  "status": 409,
-  "error": "Conflict",
-  "message": "Medical record already exists for appointment: 1",
-  "timestamp": "2026-04-22T16:01:00"
-}
-```
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
-## ❌ Error Responses
-
-All exceptions are caught by `GlobalExceptionHandler` (`@ControllerAdvice`) and return a consistent JSON shape:
-
-```json
-{
-  "status": 400,
-  "error": "Bad Request",
-  "message": "Medical record can only be created for COMPLETED appointments. Status: SCHEDULED",
-  "timestamp": "2026-04-22T16:00:00"
-}
-```
-
-| HTTP Status | Scenario |
-|---|---|
-| `400` | Appointment not COMPLETED; blank diagnosis on create/update; follow-up date in past; null attachment URL; null date in scheduler |
-| `401` | Missing or invalid JWT token (rejected at gateway) |
-| `403` | Insufficient role / forbidden access |
-| `404` | Record not found by recordId or appointmentId |
-| `409` | Medical record already exists for this appointment (unique constraint) |
-| `500` | Unexpected server error |
-
-**Complete error message reference:**
-
-| Trigger | Error Message |
-|---|---|
-| Appointment not COMPLETED | `"Medical record can only be created for COMPLETED appointments. Status: {status}"` |
-| Duplicate record | `"Medical record already exists for appointment: {appointmentId}"` |
-| Blank diagnosis on create | `"Diagnosis is required for medical record."` |
-| Follow-up date in past | `"Follow up date cannot be in the past."` |
-| Blank diagnosis on update | `"Diagnosis cannot be empty."` |
-| Blank attachment URL | `"Attachment URL cannot be empty."` |
-| Null date in query | `"Date cannot be null."` |
-| Record not found | `"MedicalRecord not found with id: {recordId}"` |
-| Record not found by appointment | `"MedicalRecord not found with appointmentId: {appointmentId}"` |
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
-## ⚙️ Environment Variables
-
-| Variable | Required | Default (dev) | Description |
-|---|---|---|---|
-| `JWT_SECRET` | **Yes** | — | Must match `api-gateway` and `auth-service`. Strong Base64 (min 256-bit) |
-| `DB_USERNAME` | No | `medibook_user` | MySQL username |
-| `DB_PASSWORD` | No | `medibook_pass` | MySQL password |
-| `MAIL_USERNAME` | **Yes** (for scheduler) | — | Gmail address for sending follow-up emails |
-| `MAIL_PASSWORD` | **Yes** (for scheduler) | — | Gmail App Password (16-char — NOT your account password) |
-| `EUREKA_DEFAULT_ZONE` | No | `http://admin:medibook123@localhost:8761/eureka/` | Eureka registry URL |
-
-**Export in bash:**
-
-```bash
-export JWT_SECRET="myVeryStrongBase64SecretKeyForMediBookThatIs256BitsLong"
-export DB_USERNAME="medibook_user"
-export DB_PASSWORD="medibook_pass"
-export MAIL_USERNAME="yourapp@gmail.com"
-export MAIL_PASSWORD="abcd efgh ijkl mnop"
-```
-
-> **Gmail App Password Setup:**  Google Account → Security → 2-Step Verification → App Passwords → Generate → Copy 16-char password
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
-## 🚀 Running the Services
-
-### Prerequisites
-
-- Java 17+ and Maven 3.8+
-- MySQL 8 running locally
-- All upstream services running (Eureka → Gateway → Auth → Provider → Schedule → Appointment → Notification)
-
-### Startup Order
-
-```bash
-# 1. Eureka Server — MUST be first
+# 1️⃣  Start Eureka Server FIRST
 cd eureka-server && mvn spring-boot:run
 
-# 2. API Gateway — MUST be second
-cd api-gateway && JWT_SECRET=<secret> mvn spring-boot:run
+# 2️⃣  Start API Gateway SECOND
+cd api-gateway && mvn spring-boot:run
 
-# 3. Auth Service (record-service calls this via Feign)
-cd auth-service && JWT_SECRET=<secret> mvn spring-boot:run
+# 3️⃣  Start all other services (any order after Eureka is up)
+cd auth-service        && mvn spring-boot:run &
+cd provider-service    && mvn spring-boot:run &
+cd schedule-service    && mvn spring-boot:run &
+cd appointment-service && mvn spring-boot:run &
+cd payment-service     && mvn spring-boot:run &
+cd review-service      && mvn spring-boot:run &
+cd notification-service && mvn spring-boot:run &
+cd record-service      && mvn spring-boot:run &
 
-# 4. Provider Service
-cd provider-service && JWT_SECRET=<secret> mvn spring-boot:run
-
-# 5. Schedule Service
-cd schedule-service && JWT_SECRET=<secret> mvn spring-boot:run
-
-# 6. Appointment Service (record-service calls this via Feign)
-cd appointment-service && JWT_SECRET=<secret> mvn spring-boot:run
-
-# 7. Notification Service (record-service calls this via Feign)
-cd notification-service \
-  && JWT_SECRET=<secret> MAIL_USERNAME=<gmail> MAIL_PASSWORD=<app-pw> \
-  mvn spring-boot:run
-
-# 8. Record Service — THIS SERVICE (depends on 3, 6, and 7 above)
-cd record-service \
-  && JWT_SECRET=<secret> MAIL_USERNAME=<gmail> MAIL_PASSWORD=<app-pw> \
-  mvn spring-boot:run
+# 4️⃣  Start Admin Service LAST (seeds admin accounts into auth_db)
+cd admin-service && mvn spring-boot:run
 ```
 
-### Build and Run as JAR
+> ✅ Eureka Dashboard: http://localhost:8761 &nbsp;|&nbsp; All services should appear as **UP**
 
-```bash
-cd record-service
-mvn clean package -DskipTests
+---
 
-java -jar target/record-service-1.0.0.jar \
-  --jwt.secret=<JWT_SECRET> \
-  --spring.datasource.username=medibook_user \
-  --spring.datasource.password=medibook_pass \
-  --spring.mail.username=yourapp@gmail.com \
-  --spring.mail.password="abcd efgh ijkl mnop"
+## 🔑 Auth Service — Port `8081`
+
+> All calls go through API Gateway → `http://localhost:8080`
+
+### Register a Patient / Provider
+
+```http
+POST http://localhost:8080/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Rahul Sharma",
+  "email": "rahul@example.com",
+  "password": "Rahul@123",
+  "phone": "9876543210",
+  "role": "Patient"
+}
 ```
 
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
-
-## 🗄️ Database Setup
-
-```sql
--- Create all required databases
-CREATE DATABASE IF NOT EXISTS record_db;
-CREATE DATABASE IF NOT EXISTS notification_db;
-CREATE DATABASE IF NOT EXISTS appointment_db;
-CREATE DATABASE IF NOT EXISTS auth_db;
-CREATE DATABASE IF NOT EXISTS provider_db;
-CREATE DATABASE IF NOT EXISTS schedule_db;
-
--- Create shared user
-CREATE USER IF NOT EXISTS 'medibook_user'@'localhost' IDENTIFIED BY 'medibook_pass';
-
--- Grant permissions
-GRANT ALL PRIVILEGES ON record_db.*       TO 'medibook_user'@'localhost';
-GRANT ALL PRIVILEGES ON notification_db.* TO 'medibook_user'@'localhost';
-GRANT ALL PRIVILEGES ON appointment_db.*  TO 'medibook_user'@'localhost';
-GRANT ALL PRIVILEGES ON auth_db.*         TO 'medibook_user'@'localhost';
-GRANT ALL PRIVILEGES ON provider_db.*     TO 'medibook_user'@'localhost';
-GRANT ALL PRIVILEGES ON schedule_db.*     TO 'medibook_user'@'localhost';
-
-FLUSH PRIVILEGES;
+**Response `201 Created`:**
+```json
+{
+  "message": "Registration successful",
+  "userId": 10,
+  "role": "Patient"
+}
 ```
 
-Hibernate `ddl-auto: update` auto-creates the `medical_records` table on first startup.
+---
 
-**Expected table:**
+### Login (Step 1 — triggers OTP)
 
-```sql
-CREATE TABLE medical_records (
-  record_id       INT AUTO_INCREMENT PRIMARY KEY,
-  appointment_id  INT          NOT NULL UNIQUE,   -- one record per appointment
-  patient_id      INT          NOT NULL,
-  provider_id     INT          NOT NULL,
-  diagnosis       VARCHAR(255) NOT NULL,
-  prescription    VARCHAR(500),
-  notes           TEXT,
-  attachment_url  VARCHAR(500),
-  follow_up_date  DATE,
-  created_at      DATETIME     NOT NULL,
-  updated_at      DATETIME
-);
+```http
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+
+{
+  "email": "rahul@example.com",
+  "password": "Rahul@123"
+}
 ```
 
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+**Response `200 OK`:**
+```json
+{
+  "otpSent": true,
+  "email": "rahul@example.com",
+  "message": "OTP sent to your email"
+}
+```
 
-## 📖 Swagger UI
+---
 
-Direct access to each service's Swagger UI (bypasses gateway):
+### Verify OTP (Step 2 — get JWT)
+
+```http
+POST http://localhost:8080/auth/verify-otp
+Content-Type: application/json
+
+{
+  "email": "rahul@example.com",
+  "otp": "483920"
+}
+```
+
+**Response `200 OK`:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": 10,
+  "role": "Patient",
+  "fullName": "Rahul Sharma",
+  "message": "Login successful"
+}
+```
+
+> 💡 **Save this token** — add it as `Authorization: Bearer <token>` for all protected endpoints
+
+---
+
+### Admin Login
+
+```http
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+
+{
+  "email": "harshalchoudhary340@gmail.com",
+  "password": "#Harshal@123"
+}
+```
+
+---
+
+### Forgot Password
+
+```http
+POST http://localhost:8080/auth/forgot-password
+Content-Type: application/json
+
+{ "email": "rahul@example.com" }
+```
+
+---
+
+### Reset Password
+
+```http
+POST http://localhost:8080/auth/reset-password
+Content-Type: application/json
+
+{
+  "token": "uuid-from-reset-email",
+  "newPassword": "NewPass@456"
+}
+```
+
+---
+
+### Get User Profile
+
+```http
+GET http://localhost:8080/auth/profile/10
+Authorization: Bearer <token>
+```
+
+---
+
+### Update Profile
+
+```http
+PUT http://localhost:8080/auth/profile/10
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "fullName": "Rahul Kumar Sharma",
+  "phone": "9876543211",
+  "profilePicUrl": "https://example.com/pic.jpg"
+}
+```
+
+---
+
+### Change Password
+
+```http
+PUT http://localhost:8080/auth/password/10
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "newPassword": "NewSecure@789" }
+```
+
+---
+
+### Deactivate Account
+
+```http
+PUT http://localhost:8080/auth/deactivate/10
+Authorization: Bearer <token>
+```
+
+---
+
+### Resend OTP
+
+```http
+POST http://localhost:8080/auth/resend-otp
+Content-Type: application/json
+
+{ "email": "rahul@example.com" }
+```
+
+---
+
+### Get All Users (Admin)
+
+```http
+GET http://localhost:8080/auth/users
+Authorization: Bearer <admin-token>
+```
+
+---
+
+### Get Users by Role (Admin)
+
+```http
+GET http://localhost:8080/auth/users/role/Provider
+Authorization: Bearer <admin-token>
+```
+
+---
+
+## 👨‍⚕️ Provider Service — Port `8082`
+
+### Register Provider Profile
+
+> First register the user with `role: "Provider"` via auth-service, then register their profile here.
+
+```http
+POST http://localhost:8080/providers/register
+Authorization: Bearer <provider-token>
+Content-Type: application/json
+
+{
+  "userId": 3,
+  "specialization": "Ophthalmology",
+  "qualification": "MBBS, MS (Ophthalmology) - AIIMS Delhi",
+  "experienceYears": 8,
+  "bio": "Specialist in retinal disorders and cataract surgery with 8 years of experience.",
+  "clinicName": "Vision Care Clinic",
+  "clinicAddress": "42, MG Road, Indore, MP 452001"
+}
+```
+
+**Response `201 Created`:**
+```json
+{
+  "providerId": 1,
+  "userId": 3,
+  "fullName": "Dr. Kanchan Choudhary",
+  "specialization": "Ophthalmology",
+  "isVerified": false,
+  "averageRating": 0.0
+}
+```
+
+---
+
+### Get Provider by ID
+
+```http
+GET http://localhost:8080/providers/1
+```
+
+---
+
+### Get Provider by User ID
+
+```http
+GET http://localhost:8080/providers/user/3
+Authorization: Bearer <token>
+```
+
+---
+
+### Search Providers
+
+```http
+GET http://localhost:8080/providers/search?keyword=eye
+```
+
+---
+
+### Get All Providers
+
+```http
+GET http://localhost:8080/providers/all
+```
+
+---
+
+### Get by Specialization
+
+```http
+GET http://localhost:8080/providers/specialization/Ophthalmology
+```
+
+---
+
+### Verify Provider (Admin only)
+
+```http
+PUT http://localhost:8080/providers/1/verify
+Authorization: Bearer <admin-token>
+```
+
+---
+
+### Update Provider Profile
+
+```http
+PUT http://localhost:8080/providers/1
+Authorization: Bearer <provider-token>
+Content-Type: application/json
+
+{
+  "userId": 3,
+  "specialization": "Ophthalmology",
+  "qualification": "MBBS, MS, Fellowship in Vitreo-Retinal Surgery",
+  "experienceYears": 9,
+  "bio": "Updated bio with fellowship.",
+  "clinicName": "Advanced Eye Care",
+  "clinicAddress": "55, Vijay Nagar, Indore"
+}
+```
+
+---
+
+### Update Availability
+
+```http
+PUT http://localhost:8080/providers/1/availability
+Authorization: Bearer <provider-token>
+Content-Type: application/json
+
+{ "isAvailable": true }
+```
+
+---
+
+## 📅 Schedule Service — Port `8083`
+
+### Add Single Slot
+
+```http
+POST http://localhost:8080/slots/add
+Authorization: Bearer <provider-token>
+Content-Type: application/json
+
+{
+  "providerId": 1,
+  "date": "2026-05-15",
+  "startTime": "10:00",
+  "endTime": "10:30",
+  "durationMinutes": 30,
+  "recurrence": "NONE"
+}
+```
+
+**Response `201 Created`:**
+```json
+{
+  "slotId": 12,
+  "providerId": 1,
+  "date": "2026-05-15",
+  "startTime": "10:00",
+  "endTime": "10:30",
+  "status": "AVAILABLE"
+}
+```
+
+---
+
+### Add Bulk Slots
+
+```http
+POST http://localhost:8080/slots/bulk
+Authorization: Bearer <provider-token>
+Content-Type: application/json
+
+[
+  {
+    "providerId": 1,
+    "date": "2026-05-15",
+    "startTime": "09:00",
+    "endTime": "09:30",
+    "durationMinutes": 30,
+    "recurrence": "NONE"
+  },
+  {
+    "providerId": 1,
+    "date": "2026-05-15",
+    "startTime": "09:30",
+    "endTime": "10:00",
+    "durationMinutes": 30,
+    "recurrence": "NONE"
+  }
+]
+```
+
+---
+
+### Add Recurring Slots
+
+```http
+POST http://localhost:8080/slots/recurring
+Authorization: Bearer <provider-token>
+Content-Type: application/json
+
+{
+  "providerId": 1,
+  "date": "2026-05-01",
+  "startTime": "11:00",
+  "endTime": "11:30",
+  "durationMinutes": 30,
+  "recurrence": "WEEKLY",
+  "recurrenceEndDate": "2026-05-31"
+}
+```
+
+---
+
+### Get Available Slots for Provider
+
+```http
+GET http://localhost:8080/slots/available/1
+```
+
+---
+
+### Get All Slots for Provider
+
+```http
+GET http://localhost:8080/slots/provider/1
+Authorization: Bearer <provider-token>
+```
+
+---
+
+### Block a Slot
+
+```http
+PUT http://localhost:8080/slots/12/block
+Authorization: Bearer <provider-token>
+```
+
+---
+
+### Unblock a Slot
+
+```http
+PUT http://localhost:8080/slots/12/unblock
+Authorization: Bearer <provider-token>
+```
+
+---
+
+### Delete a Slot
+
+```http
+DELETE http://localhost:8080/slots/12
+Authorization: Bearer <provider-token>
+```
+
+---
+
+## 🗓️ Appointment Service — Port `8084`
+
+### Book Appointment
+
+```http
+POST http://localhost:8080/appointments/book
+Authorization: Bearer <patient-token>
+Content-Type: application/json
+
+{
+  "patientId": 5,
+  "providerId": 1,
+  "slotId": 12,
+  "serviceType": "Eye Consultation",
+  "appointmentDate": "2026-05-15",
+  "startTime": "10:00",
+  "endTime": "10:30",
+  "modeOfConsultation": "IN_PERSON",
+  "notes": "Experiencing blurry vision and eye pain for 3 days.",
+  "patientEmail": "rahul@example.com"
+}
+```
+
+**Response `201 Created`:**
+```json
+{
+  "message": "Appointment booked successfully.",
+  "appointmentId": 3,
+  "status": "SCHEDULED",
+  "appointmentDate": "2026-05-15",
+  "startTime": "10:00",
+  "modeOfConsultation": "IN_PERSON"
+}
+```
+
+---
+
+### Get Appointment by ID
+
+```http
+GET http://localhost:8080/appointments/3
+Authorization: Bearer <token>
+```
+
+---
+
+### Get Patient's Appointments
+
+```http
+GET http://localhost:8080/appointments/patient/5
+Authorization: Bearer <patient-token>
+```
+
+---
+
+### Get Patient's Upcoming Appointments
+
+```http
+GET http://localhost:8080/appointments/patient/5/upcoming
+Authorization: Bearer <patient-token>
+```
+
+---
+
+### Get Provider's Appointments
+
+```http
+GET http://localhost:8080/appointments/provider/1
+Authorization: Bearer <provider-token>
+```
+
+---
+
+### Get Provider's Appointments by Date
+
+```http
+GET http://localhost:8080/appointments/provider/1/date?date=2026-05-15
+Authorization: Bearer <provider-token>
+```
+
+---
+
+### Mark as Completed (Provider)
+
+```http
+PUT http://localhost:8080/appointments/3/complete?providerId=1
+Authorization: Bearer <provider-token>
+```
+
+---
+
+### Mark as No-Show (Provider)
+
+```http
+PUT http://localhost:8080/appointments/3/no-show?providerId=1
+Authorization: Bearer <provider-token>
+```
+
+---
+
+### Cancel Appointment
+
+```http
+PUT http://localhost:8080/appointments/3/cancel
+Authorization: Bearer <token>
+```
+
+---
+
+### Reschedule Appointment
+
+```http
+PUT http://localhost:8080/appointments/3/reschedule
+Authorization: Bearer <patient-token>
+Content-Type: application/json
+
+{
+  "slotId": 15,
+  "appointmentDate": "2026-05-20",
+  "startTime": "11:00",
+  "endTime": "11:30"
+}
+```
+
+---
+
+## 💳 Payment Service — Port `8085`
+
+### Initiate Payment
+
+```http
+POST http://localhost:8080/payments/initiate
+Authorization: Bearer <patient-token>
+Content-Type: application/json
+
+{
+  "appointmentId": 3,
+  "patientId": 5,
+  "amount": 500.00,
+  "paymentMethod": "UPI",
+  "currency": "INR"
+}
+```
+
+**Response `201 Created`:**
+```json
+{
+  "paymentId": 7,
+  "appointmentId": 3,
+  "amount": 500.00,
+  "status": "PENDING",
+  "transactionId": "TXN_20260515_ABC123",
+  "paymentMethod": "UPI"
+}
+```
+
+---
+
+### Verify Payment
+
+```http
+POST http://localhost:8080/payments/verify
+Authorization: Bearer <patient-token>
+Content-Type: application/json
+
+{
+  "transactionId": "TXN_20260515_ABC123",
+  "paymentId": 7
+}
+```
+
+**Response `200 OK`:**
+```json
+{
+  "paymentId": 7,
+  "status": "SUCCESS",
+  "message": "Payment verified successfully"
+}
+```
+
+---
+
+### Get Payment by Appointment
+
+```http
+GET http://localhost:8080/payments/appointment/3
+Authorization: Bearer <token>
+```
+
+---
+
+### Get Patient's Payment History
+
+```http
+GET http://localhost:8080/payments/patient/5
+Authorization: Bearer <patient-token>
+```
+
+---
+
+### Refund Payment
+
+```http
+POST http://localhost:8080/payments/7/refund
+Authorization: Bearer <admin-token>
+```
+
+---
+
+### Get Total Revenue (Admin)
+
+```http
+GET http://localhost:8080/payments/revenue/total
+Authorization: Bearer <admin-token>
+```
+
+---
+
+### Get Provider's Payments
+
+```http
+GET http://localhost:8080/payments/provider/1
+Authorization: Bearer <provider-token>
+```
+
+---
+
+## ⭐ Review Service — Port `8086`
+
+### Submit Review
+
+```http
+POST http://localhost:8080/reviews/submit
+Authorization: Bearer <patient-token>
+Content-Type: application/json
+
+{
+  "appointmentId": 3,
+  "patientId": 5,
+  "providerId": 1,
+  "rating": 5,
+  "comment": "Excellent doctor! Very thorough examination. Highly recommended.",
+  "isAnonymous": false
+}
+```
+
+**Response `201 Created`:**
+```json
+{
+  "reviewId": 4,
+  "providerId": 1,
+  "rating": 5,
+  "comment": "Excellent doctor!...",
+  "createdAt": "2026-05-15T14:30:00"
+}
+```
+
+---
+
+### Get Provider's Reviews
+
+```http
+GET http://localhost:8080/reviews/provider/1
+```
+
+---
+
+### Get Provider's Average Rating
+
+```http
+GET http://localhost:8080/reviews/provider/1/average
+```
+
+**Response:**
+```json
+{ "providerId": 1, "averageRating": 4.7 }
+```
+
+---
+
+### Get Patient's Reviews
+
+```http
+GET http://localhost:8080/reviews/patient/5
+Authorization: Bearer <patient-token>
+```
+
+---
+
+### Update Review
+
+```http
+PUT http://localhost:8080/reviews/4
+Authorization: Bearer <patient-token>
+Content-Type: application/json
+
+{
+  "appointmentId": 3,
+  "patientId": 5,
+  "providerId": 1,
+  "rating": 4,
+  "comment": "Updated: Good doctor, slightly long wait time.",
+  "isAnonymous": false
+}
+```
+
+---
+
+### Delete Review
+
+```http
+DELETE http://localhost:8080/reviews/4
+Authorization: Bearer <patient-token>
+```
+
+---
+
+## 🔔 Notification Service — Port `8087`
+
+### Send Notification (Manual)
+
+```http
+POST http://localhost:8080/notifications/send
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "recipientId": 5,
+  "type": "APPOINTMENT_REMINDER",
+  "title": "Appointment Tomorrow",
+  "message": "You have an appointment with Dr. Kanchan tomorrow at 10:00 AM.",
+  "channel": "APP",
+  "relatedId": 3,
+  "relatedType": "APPOINTMENT"
+}
+```
+
+---
+
+### Send Email Notification
+
+```http
+POST http://localhost:8080/notifications/send
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "recipientId": 5,
+  "type": "APPOINTMENT_CONFIRMED",
+  "title": "Your Appointment is Confirmed - MediBook",
+  "message": "Your appointment #3 with Dr. Kanchan on May 15 at 10:00 AM is confirmed.",
+  "channel": "EMAIL",
+  "relatedId": 3,
+  "relatedType": "APPOINTMENT"
+}
+```
+
+---
+
+### Get User's Notifications
+
+```http
+GET http://localhost:8080/notifications/recipient/5
+Authorization: Bearer <patient-token>
+```
+
+---
+
+### Get Unread Count
+
+```http
+GET http://localhost:8080/notifications/unread/count/5
+Authorization: Bearer <patient-token>
+```
+
+**Response:**
+```json
+{ "recipientId": 5, "unreadCount": 3 }
+```
+
+---
+
+### Mark Notification as Read
+
+```http
+PUT http://localhost:8080/notifications/12/read
+Authorization: Bearer <patient-token>
+```
+
+---
+
+### Mark All as Read
+
+```http
+PUT http://localhost:8080/notifications/read/all/5
+Authorization: Bearer <patient-token>
+```
+
+---
+
+### Delete Notification
+
+```http
+DELETE http://localhost:8080/notifications/12
+Authorization: Bearer <patient-token>
+```
+
+---
+
+## 📋 Record Service — Port `8088`
+
+> ⚠️ Appointment must be `COMPLETED` before creating a medical record.
+
+### Create Medical Record
+
+```http
+POST http://localhost:8080/records/create
+Authorization: Bearer <provider-token>
+Content-Type: application/json
+
+{
+  "appointmentId": 3,
+  "patientId": 5,
+  "providerId": 1,
+  "diagnosis": "Bacterial Conjunctivitis (Pink Eye)",
+  "prescription": "Tab Ciprofloxacin 500mg - Twice daily for 5 days\nEye drops Moxifloxacin 0.5% - 1 drop in affected eye 4 times daily\nTab Dexamethasone - Once in morning with Ciprofloxacin & Once at night",
+  "notes": "Patient presented with redness, discharge and itching in right eye.\nBP: 120/80 mmHg | Weight: 65kg | Height: 5'11\"\nAdvised to avoid eye contact and wash hands frequently.",
+  "followUpDate": "2026-05-25"
+}
+```
+
+**Response `201 Created`:**
+```json
+{
+  "recordId": 8,
+  "appointmentId": 3,
+  "patientId": 5,
+  "providerId": 1,
+  "diagnosis": "Bacterial Conjunctivitis (Pink Eye)",
+  "followUpDate": "2026-05-25",
+  "createdAt": "2026-05-15T14:45:00"
+}
+```
+
+---
+
+### Get Record by Appointment
+
+```http
+GET http://localhost:8080/records/appointment/3
+Authorization: Bearer <token>
+```
+
+---
+
+### Get Patient's Records
+
+```http
+GET http://localhost:8080/records/patient/5
+Authorization: Bearer <patient-token>
+```
+
+---
+
+### Get Provider's Records
+
+```http
+GET http://localhost:8080/records/provider/1
+Authorization: Bearer <provider-token>
+```
+
+---
+
+### Get Record by ID
+
+```http
+GET http://localhost:8080/records/8
+Authorization: Bearer <token>
+```
+
+---
+
+### Update Medical Record
+
+```http
+PUT http://localhost:8080/records/8
+Authorization: Bearer <provider-token>
+Content-Type: application/json
+
+{
+  "appointmentId": 3,
+  "patientId": 5,
+  "providerId": 1,
+  "diagnosis": "Bacterial Conjunctivitis — Improving",
+  "prescription": "Continue Ciprofloxacin for 3 more days. Stop Dexamethasone.",
+  "notes": "Follow-up visit: Significant improvement noted.",
+  "followUpDate": null
+}
+```
+
+---
+
+### Attach Document to Record
+
+```http
+PUT http://localhost:8080/records/8/attach?url=https://storage.example.com/lab-report-patient5.pdf
+Authorization: Bearer <provider-token>
+```
+
+---
+
+### Get Upcoming Follow-ups for Patient
+
+```http
+GET http://localhost:8080/records/patient/5/followups
+Authorization: Bearer <patient-token>
+```
+
+---
+
+### Get Today's Follow-ups (Scheduler)
+
+```http
+GET http://localhost:8080/records/followups/today
+Authorization: Bearer <admin-token>
+```
+
+---
+
+### Get Record Count for Patient
+
+```http
+GET http://localhost:8080/records/patient/5/count
+Authorization: Bearer <patient-token>
+```
+
+---
+
+### Delete Record (Admin)
+
+```http
+DELETE http://localhost:8080/records/8
+Authorization: Bearer <admin-token>
+```
+
+---
+
+## 🛡️ Admin Service — Port `8089`
+
+> All endpoints require `Authorization: Bearer <admin-token>` — only users with `role: Admin` can access.
+
+### How Admins are Seeded
+
+Pre-configured admins in `admin-service/src/main/resources/application.yml` are **auto-registered at startup**:
+
+```yaml
+app:
+  admins:
+    - fullName: Harshal Choudhary
+      email: harshalchoudhary340@gmail.com
+      password: "#Harshal@123"
+    - fullName: Aditya Landge
+      email: adityalandge64@gmail.com
+      password: "#Harsh@123"
+```
+
+> 💡 These admins can log in via `POST /auth/login` and receive a JWT with `role: Admin`.
+
+---
+
+### Admin Ping / Health Check
+
+```http
+GET http://localhost:8080/admin/ping
+Authorization: Bearer <admin-token>
+```
+
+**Response:**
+```json
+{
+  "status": "UP",
+  "service": "admin-service",
+  "message": "Admin service is running"
+}
+```
+
+---
+
+### Get All Users
+
+```http
+GET http://localhost:8080/admin/users
+Authorization: Bearer <admin-token>
+```
+
+---
+
+### Get User by ID
+
+```http
+GET http://localhost:8080/admin/users/5
+Authorization: Bearer <admin-token>
+```
+
+---
+
+### Get Users by Role
+
+```http
+GET http://localhost:8080/admin/users/role/Patient
+Authorization: Bearer <admin-token>
+
+# Role values: Patient | Provider | Admin
+```
+
+---
+
+### Deactivate a User
+
+```http
+PUT http://localhost:8080/admin/users/5/deactivate
+Authorization: Bearer <admin-token>
+```
+
+**Response:**
+```json
+{ "message": "User deactivated successfully" }
+```
+
+---
+
+### Reactivate a User
+
+```http
+PUT http://localhost:8080/admin/users/5/reactivate
+Authorization: Bearer <admin-token>
+```
+
+---
+
+### Get All Admins
+
+```http
+GET http://localhost:8080/admin/admins
+Authorization: Bearer <admin-token>
+```
+
+---
+
+### Add New Admin at Runtime
+
+> No restart required — admin is instantly created in DB.
+
+```http
+POST http://localhost:8080/admin/admins
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+
+{
+  "fullName": "New Admin User",
+  "email": "newadmin@medibook.com",
+  "password": "Admin@Secure123"
+}
+```
+
+**Response `201 Created`:**
+```json
+{
+  "message": "Admin created successfully",
+  "userId": 25,
+  "email": "newadmin@medibook.com"
+}
+```
+
+---
+
+## 🌐 API Gateway — Port `8080`
+
+The gateway is the **single entry point** for all services. All routes are automatically load-balanced via Eureka.
+
+### Route Map
+
+| Prefix | Routed To |
+|--------|-----------|
+| `/auth/**` | auth-service `:8081` |
+| `/providers/**` | provider-service `:8082` |
+| `/slots/**` | schedule-service `:8083` |
+| `/appointments/**` | appointment-service `:8084` |
+| `/payments/**` | payment-service `:8085` |
+| `/reviews/**` | review-service `:8086` |
+| `/notifications/**` | notification-service `:8087` |
+| `/records/**` | record-service `:8088` |
+| `/admin/**` | admin-service `:8089` |
+
+### Public Endpoints (No JWT required)
+
+```
+POST  /auth/register
+POST  /auth/login
+POST  /auth/verify-otp
+POST  /auth/resend-otp
+POST  /auth/forgot-password
+POST  /auth/verify-reset-otp
+POST  /auth/reset-password
+POST  /auth/google/complete
+POST  /auth/add-phone
+GET   /auth/profile/{userId}
+GET   /providers/**
+GET   /slots/available/**
+```
+
+---
+
+## 📊 Complete API Reference
+
+<details>
+<summary><b>🔐 Auth Service — All Endpoints</b></summary>
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/auth/register` | ❌ | Register Patient / Provider |
+| `POST` | `/auth/login` | ❌ | Login (sends OTP) |
+| `POST` | `/auth/verify-otp` | ❌ | Verify OTP → get JWT |
+| `POST` | `/auth/resend-otp` | ❌ | Resend OTP |
+| `POST` | `/auth/logout` | ✅ | Logout |
+| `POST` | `/auth/refresh` | ✅ | Refresh JWT token |
+| `GET`  | `/auth/profile/{userId}` | ❌ | Get user profile |
+| `PUT`  | `/auth/profile/{userId}` | ✅ | Update profile |
+| `PUT`  | `/auth/password/{userId}` | ✅ | Change password |
+| `PUT`  | `/auth/deactivate/{userId}` | ✅ | Deactivate account |
+| `PUT`  | `/auth/reactivate/{userId}` | ✅ | Reactivate account |
+| `POST` | `/auth/forgot-password` | ❌ | Forgot password |
+| `POST` | `/auth/verify-reset-otp` | ❌ | Verify reset OTP |
+| `POST` | `/auth/reset-password` | ❌ | Reset password |
+| `POST` | `/auth/google/complete` | ❌ | Complete Google OAuth2 |
+| `POST` | `/auth/add-phone` | ❌ | Add phone number |
+| `GET`  | `/auth/users` | ✅ Admin | Get all users |
+| `GET`  | `/auth/users/role/{role}` | ✅ Admin | Get users by role |
+
+</details>
+
+<details>
+<summary><b>👨‍⚕️ Provider Service — All Endpoints</b></summary>
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/providers/register` | ✅ | Register provider profile |
+| `GET`  | `/providers/{providerId}` | ❌ | Get provider by ID |
+| `GET`  | `/providers/user/{userId}` | ✅ | Get provider by user ID |
+| `GET`  | `/providers/specialization/{spec}` | ❌ | Get by specialization |
+| `GET`  | `/providers/search?keyword=` | ❌ | Search providers |
+| `GET`  | `/providers/available` | ❌ | Get available providers |
+| `GET`  | `/providers/all` | ❌ | Get all providers |
+| `PUT`  | `/providers/{providerId}` | ✅ | Update provider |
+| `PUT`  | `/providers/{providerId}/verify` | ✅ Admin | Verify provider |
+| `PUT`  | `/providers/{providerId}/availability` | ✅ | Toggle availability |
+| `PUT`  | `/providers/{providerId}/rating` | ✅ | Update rating |
+| `DELETE` | `/providers/{providerId}` | ✅ Admin | Delete provider |
+
+</details>
+
+<details>
+<summary><b>📅 Schedule Service — All Endpoints</b></summary>
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/slots/add` | ✅ | Add single slot |
+| `POST` | `/slots/bulk` | ✅ | Add bulk slots |
+| `POST` | `/slots/recurring` | ✅ | Add recurring slots |
+| `GET`  | `/slots/provider/{providerId}` | ✅ | Get all provider slots |
+| `GET`  | `/slots/available/{providerId}` | ❌ | Get available slots |
+| `GET`  | `/slots/{slotId}` | ✅ | Get slot by ID |
+| `PUT`  | `/slots/{slotId}` | ✅ | Update slot |
+| `PUT`  | `/slots/{slotId}/block` | ✅ | Block slot |
+| `PUT`  | `/slots/{slotId}/unblock` | ✅ | Unblock slot |
+| `PUT`  | `/slots/{slotId}/book` | ✅ | Book slot |
+| `PUT`  | `/slots/{slotId}/release` | ✅ | Release slot |
+| `DELETE` | `/slots/{slotId}` | ✅ | Delete slot |
+
+</details>
+
+<details>
+<summary><b>🗓️ Appointment Service — All Endpoints</b></summary>
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/appointments/book` | ✅ | Book appointment |
+| `GET`  | `/appointments/{appointmentId}` | ✅ | Get by ID |
+| `GET`  | `/appointments/patient/{patientId}` | ✅ | Patient's appointments |
+| `GET`  | `/appointments/patient/{patientId}/upcoming` | ✅ | Upcoming appointments |
+| `GET`  | `/appointments/provider/{providerId}` | ✅ | Provider's appointments |
+| `GET`  | `/appointments/provider/{providerId}/date` | ✅ | By provider and date |
+| `GET`  | `/appointments/provider/{providerId}/count` | ✅ | Appointment count |
+| `PUT`  | `/appointments/{id}/cancel` | ✅ | Cancel appointment |
+| `PUT`  | `/appointments/{id}/reschedule` | ✅ | Reschedule |
+| `PUT`  | `/appointments/{id}/complete` | ✅ Provider | Mark complete |
+| `PUT`  | `/appointments/{id}/no-show` | ✅ Provider | Mark no-show |
+| `PUT`  | `/appointments/{id}/status` | ✅ | Update status |
+
+</details>
+
+<details>
+<summary><b>💳 Payment Service — All Endpoints</b></summary>
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/payments/initiate` | ✅ | Initiate payment |
+| `POST` | `/payments/verify` | ✅ | Verify payment |
+| `GET`  | `/payments/appointment/{appointmentId}` | ✅ | Get by appointment |
+| `GET`  | `/payments/{paymentId}` | ✅ | Get by ID |
+| `GET`  | `/payments/patient/{patientId}` | ✅ | Patient's payments |
+| `GET`  | `/payments/provider/{providerId}` | ✅ | Provider's payments |
+| `GET`  | `/payments/revenue/total` | ✅ Admin | Total revenue |
+| `GET`  | `/payments/status` | ✅ | Payment status |
+| `POST` | `/payments/{paymentId}/refund` | ✅ Admin | Refund payment |
+| `PUT`  | `/payments/{paymentId}/status` | ✅ Admin | Update status |
+
+</details>
+
+<details>
+<summary><b>⭐ Review Service — All Endpoints</b></summary>
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/reviews/submit` | ✅ Patient | Submit review |
+| `GET`  | `/reviews/provider/{providerId}` | ❌ | Provider's reviews |
+| `GET`  | `/reviews/patient/{patientId}` | ✅ | Patient's reviews |
+| `GET`  | `/reviews/{reviewId}` | ✅ | Get by ID |
+| `GET`  | `/reviews/provider/{providerId}/average` | ❌ | Average rating |
+| `GET`  | `/reviews/provider/{providerId}/count` | ❌ | Review count |
+| `PUT`  | `/reviews/{reviewId}` | ✅ Patient | Update review |
+| `DELETE` | `/reviews/{reviewId}` | ✅ | Delete review |
+
+</details>
+
+<details>
+<summary><b>🔔 Notification Service — All Endpoints</b></summary>
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/notifications/send` | ✅ | Send notification |
+| `POST` | `/notifications/bulk` | ✅ Admin | Send bulk notifications |
+| `GET`  | `/notifications/recipient/{recipientId}` | ✅ | Get user's notifications |
+| `GET`  | `/notifications/unread/count/{recipientId}` | ✅ | Unread count |
+| `GET`  | `/notifications/all` | ✅ Admin | All notifications |
+| `PUT`  | `/notifications/{notificationId}/read` | ✅ | Mark as read |
+| `PUT`  | `/notifications/read/all/{recipientId}` | ✅ | Mark all as read |
+| `DELETE` | `/notifications/{notificationId}` | ✅ | Delete notification |
+
+</details>
+
+<details>
+<summary><b>📋 Record Service — All Endpoints</b></summary>
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/records/create` | ✅ Provider | Create medical record |
+| `GET`  | `/records/appointment/{appointmentId}` | ✅ | Get by appointment |
+| `GET`  | `/records/patient/{patientId}` | ✅ | Patient's records |
+| `GET`  | `/records/provider/{providerId}` | ✅ | Provider's records |
+| `GET`  | `/records/{recordId}` | ✅ | Get by ID |
+| `GET`  | `/records/patient/{patientId}/followups` | ✅ | Upcoming follow-ups |
+| `GET`  | `/records/patient/{patientId}/count` | ✅ | Record count |
+| `GET`  | `/records/followups/today` | ✅ Admin | Today's follow-ups |
+| `PUT`  | `/records/{recordId}` | ✅ Provider | Update record |
+| `PUT`  | `/records/{recordId}/attach` | ✅ Provider | Attach document |
+| `DELETE` | `/records/{recordId}` | ✅ Admin | Delete record |
+
+</details>
+
+<details>
+<summary><b>🛡️ Admin Service — All Endpoints</b></summary>
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET`  | `/admin/ping` | ✅ Admin | Health check |
+| `GET`  | `/admin/users` | ✅ Admin | All users |
+| `GET`  | `/admin/users/{userId}` | ✅ Admin | User by ID |
+| `GET`  | `/admin/users/role/{role}` | ✅ Admin | Users by role |
+| `PUT`  | `/admin/users/{userId}/deactivate` | ✅ Admin | Deactivate user |
+| `PUT`  | `/admin/users/{userId}/reactivate` | ✅ Admin | Reactivate user |
+| `GET`  | `/admin/admins` | ✅ Admin | All admins |
+| `POST` | `/admin/admins` | ✅ Admin | Add new admin |
+
+</details>
+
+---
+
+## 💡 Common Workflows
+
+### 🏥 Full Patient Journey
+
+```
+1. POST /auth/register          → Register as Patient
+2. POST /auth/login             → Login (OTP sent)
+3. POST /auth/verify-otp        → Get JWT token
+4. GET  /providers/all          → Browse doctors
+5. GET  /slots/available/{id}   → View available slots
+6. POST /appointments/book      → Book appointment
+7. POST /payments/initiate      → Pay for appointment
+8. POST /payments/verify        → Confirm payment
+9. GET  /appointments/patient/{id}/upcoming  → View upcoming
+10. GET /records/patient/{id}   → View medical records
+11. POST /reviews/submit        → Leave review after visit
+```
+
+### 👨‍⚕️ Full Provider Journey
+
+```
+1. POST /auth/register           → Register as Provider
+2. POST /providers/register      → Create provider profile
+3. POST /slots/add               → Add availability slots
+4. GET  /appointments/provider/{id}  → View appointments
+5. PUT  /appointments/{id}/complete  → Mark appointment done
+6. POST /records/create          → Create medical record
+```
+
+### 🛡️ Admin Journey
+
+```
+1. POST /auth/login              → Login as Admin
+2. GET  /admin/users             → View all users
+3. PUT  /providers/{id}/verify   → Verify a provider
+4. PUT  /admin/users/{id}/deactivate  → Deactivate bad actor
+5. GET  /payments/revenue/total  → Check revenue
+6. POST /admin/admins            → Add another admin
+```
+
+---
+
+## 🔧 Swagger / API Docs
+
+Each service exposes its own Swagger UI (accessible **directly** on service port — not via gateway):
 
 | Service | Swagger URL |
-|---|---|
-| **record-service** | http://localhost:8088/swagger-ui.html |
-| notification-service | http://localhost:8087/swagger-ui.html |
-| appointment-service | http://localhost:8084/swagger-ui.html |
-| schedule-service | http://localhost:8083/swagger-ui.html |
-| auth-service | http://localhost:8081/swagger-ui.html |
-| provider-service | http://localhost:8082/swagger-ui.html |
+|---------|-------------|
+| Auth Service | http://localhost:8081/swagger-ui.html |
+| Provider Service | http://localhost:8082/swagger-ui.html |
+| Schedule Service | http://localhost:8083/swagger-ui.html |
+| Appointment Service | http://localhost:8084/swagger-ui.html |
+| Payment Service | http://localhost:8085/swagger-ui.html |
+| Review Service | http://localhost:8086/swagger-ui.html |
+| Notification Service | http://localhost:8087/swagger-ui.html |
+| Record Service | http://localhost:8088/swagger-ui.html |
+| Admin Service | http://localhost:8089/swagger-ui.html |
 
-OpenAPI JSON docs available at `/api-docs` on each service.
-
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+---
 
 ## Author👨‍💻
 
@@ -1215,19 +1574,14 @@ OpenAPI JSON docs available at `/api-docs` on each service.
 B.Tech - `[Computer Science & Engineering]`  
 Java | Spring Boot | Spring Security | JWT | MySQL | Clean Architecture
 
-<img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif" width="100%">
+---
 
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d4a3a,40:137057,80:1a9e6e,100:0d4a3a&height=120&section=footer" width="100%"/>
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=16&duration=3000&pause=1000&color=00D4AA&center=true&vCenter=true&width=600&lines=Built+with+❤️+by+Harshal+Choudhary;MediBook+—+Book+Smarter.+Heal+Faster." alt="Footer" />
 
-**MediBook Microservices — UC8 Record Service**
-
-`3 Feign Clients` · `@Scheduled 08:00 AM` · `HIPAA Audit Trail` · `Spring Boot 3.2` · `Java 17`
-
-![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
-![UC8](https://img.shields.io/badge/Feature-UC8_Record_Service-brightgreen?style=flat-square)
-![Feign](https://img.shields.io/badge/OpenFeign-3_Clients-6DB33F?style=flat-square&logo=spring)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2.0-6DB33F?style=flat-square&logo=springboot)
+![Made with Spring Boot](https://img.shields.io/badge/Made_with-Spring_Boot-6DB33F?style=for-the-badge&logo=spring-boot)
+![Microservices](https://img.shields.io/badge/Architecture-Microservices-blue?style=for-the-badge)
+![Open Source](https://img.shields.io/badge/Open-Source-orange?style=for-the-badge&logo=github)
 
 </div>

@@ -75,6 +75,12 @@ spring:
           predicates:
             - Path=/records/**
 
+        # ── ADMIN SERVICE ─────────────────────────────────────────────
+        - id: admin-service
+          uri: lb://admin-service
+          predicates:
+            - Path=/admin/**
+
 # Eureka registration
 eureka:
   client:

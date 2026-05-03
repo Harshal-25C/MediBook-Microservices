@@ -29,26 +29,46 @@ public class RecordServiceImpl implements RecordService {
     @Override
     public MedicalRecord createRecord(RecordRequest request) {
 
-        // Feign call → appointment-service GET /appointments/{id}
-        // Replaces: appointmentRepository.findByAppointmentId(id)
-        AppointmentDto appointment = appointmentClient.getById(request.getAppointmentId());
-
-        if(!appointment.getStatus().equalsIgnoreCase("COMPLETED")) {
+        // FIX: Wrap Feign call in try-catch — if appointment-service is down
+        // or returns an unexpected response, give a clear 400 instead of 500.
+        AppointmentDto appointment;
+        try {
+            appointment = appointmentClient.getById(request.getAppointmentId());
+        } catch (Exception e) {
             throw new BadRequestException(
-                "Medical record can only be created for COMPLETED appointments. Status: "
-                + appointment.getStatus());
+                "Could not fetch appointment #" + request.getAppointmentId() +
+                ". Make sure appointment-service is running. Error: " + e.getMessage()
+            );
         }
 
-        if(recordRepository.existsByAppointmentId(request.getAppointmentId())) {
+        // FIX: Null-safe status check — Feign may deserialize status as null
+        // if the field name doesn't match exactly.
+        String status = appointment.getStatus();
+        if (status == null) {
+            throw new BadRequestException(
+                "Appointment #" + request.getAppointmentId() +
+                " returned a null status. Please check appointment-service."
+            );
+        }
+
+        if (!status.equalsIgnoreCase("COMPLETED")) {
+            throw new BadRequestException(
+                "Medical record can only be created for COMPLETED appointments. " +
+                "Current status: " + status
+            );
+        }
+
+        if (recordRepository.existsByAppointmentId(request.getAppointmentId())) {
             throw new DuplicateResourceException(
-                "Medical record already exists for appointment: " + request.getAppointmentId());
+                "Medical record already exists for appointment: " + request.getAppointmentId()
+            );
         }
 
-        if(request.getDiagnosis() == null || request.getDiagnosis().trim().isEmpty()) {
+        if (request.getDiagnosis() == null || request.getDiagnosis().trim().isEmpty()) {
             throw new BadRequestException("Diagnosis is required for medical record.");
         }
 
-        if(request.getFollowUpDate() != null && request.getFollowUpDate().isBefore(LocalDate.now())) {
+        if (request.getFollowUpDate() != null && request.getFollowUpDate().isBefore(LocalDate.now())) {
             throw new BadRequestException("Follow up date cannot be in the past.");
         }
 
@@ -92,10 +112,10 @@ public class RecordServiceImpl implements RecordService {
     public MedicalRecord updateRecord(int recordId, RecordRequest request) {
         MedicalRecord existing = getRecordById(recordId);
 
-        if(request.getDiagnosis() == null || request.getDiagnosis().trim().isEmpty()) {
+        if (request.getDiagnosis() == null || request.getDiagnosis().trim().isEmpty()) {
             throw new BadRequestException("Diagnosis cannot be empty.");
         }
-        if(request.getFollowUpDate() != null && request.getFollowUpDate().isBefore(LocalDate.now())) {
+        if (request.getFollowUpDate() != null && request.getFollowUpDate().isBefore(LocalDate.now())) {
             throw new BadRequestException("Follow up date cannot be in the past.");
         }
 
@@ -117,7 +137,7 @@ public class RecordServiceImpl implements RecordService {
 
     @Override
     public void attachDocument(int recordId, String attachmentUrl) {
-        if(attachmentUrl == null || attachmentUrl.trim().isEmpty()) {
+        if (attachmentUrl == null || attachmentUrl.trim().isEmpty()) {
             throw new BadRequestException("Attachment URL cannot be empty.");
         }
         MedicalRecord record = getRecordById(recordId);
@@ -127,7 +147,7 @@ public class RecordServiceImpl implements RecordService {
 
     @Override
     public List<MedicalRecord> getFollowUpRecords(LocalDate date) {
-        if(date == null) throw new BadRequestException("Date cannot be null.");
+        if (date == null) throw new BadRequestException("Date cannot be null.");
         return recordRepository.findByFollowUpDate(date);
     }
 

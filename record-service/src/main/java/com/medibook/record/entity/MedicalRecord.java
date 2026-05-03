@@ -66,6 +66,7 @@ public class MedicalRecord {
      * Optional — some consultations have no medicines.
      * Stored as text — doctor writes full prescription.
      */
+    @Column(columnDefinition = "TEXT")
     private String prescription;
 
     /*
