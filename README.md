@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=32&duration=2800&pause=2000&color=00D4AA&center=true&vCenter=true&width=940&lines=🏥+MediBook+Backend+Microservices;Book+Smarter.+Heal+Faster.;Spring+Boot+%7C+JWT+%7C+RabbitMQ+%7C+MySQL" alt="MediBook Typing SVG" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d4a3a,40:137057,80:1a9e6e,100:0d4a3a&height=220&section=header&text=🏥%20MediBook%20Smart%20Appointment%20Booking%20System&fontSize=42&fontColor=ffffff&animation=fadeIn&fontAlignY=40&desc=feature/admin-server%20·%20Microservice-Architecture%20·%20Follow-Up%20Scheduler%20·%20Spring%20Boot%203.2&descAlignY=60&descAlign=50" width="100%"/>
 
 <br/>
 
