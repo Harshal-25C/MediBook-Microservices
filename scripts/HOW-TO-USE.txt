@@ -1,0 +1,160 @@
+========================= HOW TO USE THESE SCRIPTS =========================
+
+You have 4 files:
+
+  start-all.bat   ← Double-click to start (simple, fixed 8s wait between services)
+  start-all.ps1   ← Right-click → Run with PowerShell (SMART: waits for each
+                    service to be actually UP before starting the next one)
+  stop-all.bat    ← Double-click to stop all services
+  stop-all.ps1    ← Right-click → Run with PowerShell to stop all services
+
+==========================================================================
+STEP 1 — PLACE THESE FILES IN THE RIGHT FOLDER
+==========================================================================
+
+Your project structure should look like this:
+
+  MediBook-Microservices-feature-admin-server\       ← PROJECT ROOT
+  ├── scripts\                                       ← PUT THIS FOLDER HERE
+  │   ├── start-all.bat
+  │   ├── start-all.ps1
+  │   ├── stop-all.bat
+  │   └── stop-all.ps1
+  ├── admin-service\
+  ├── api-gateway\
+  ├── appointment-service\
+  ├── auth-service\
+  ├── eureka-server\
+  ├── notification-service\
+  ├── payment-service\
+  ├── provider-service\
+  ├── record-service\
+  ├── review-service\
+  ├── schedule-service\
+  └── pom.xml
+
+==========================================================================
+STEP 2 — SET YOUR PROJECT ROOT PATH (IMPORTANT!)
+==========================================================================
+
+Open start-all.bat in Notepad and check this line near the top:
+
+  set ROOT=%~dp0..
+
+This means: "go one folder UP from where the scripts folder is."
+If your scripts folder is INSIDE the project root, this works automatically.
+
+If it doesn't work, replace it with your actual path:
+  set ROOT=C:\Users\Harshal\Desktop\MediBook-Microservices-feature-admin-server
+
+Same for start-all.ps1 — find this line:
+  $ROOT = Split-Path -Parent $PSScriptRoot
+And replace with:
+  $ROOT = "C:\Users\Harshal\Desktop\MediBook-Microservices-feature-admin-server"
+
+==========================================================================
+STEP 3 — ALLOW POWERSHELL SCRIPTS TO RUN (ONE TIME SETUP)
+==========================================================================
+
+PowerShell blocks scripts by default. Run this ONCE in PowerShell as Admin:
+
+  Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+Type Y and press Enter. You only need to do this once ever.
+
+==========================================================================
+STEP 4 — MAKE SURE PREREQUISITES ARE RUNNING
+==========================================================================
+
+Before running start-all, make sure these are already running:
+
+  ✅ MySQL        — Start MySQL service (Services app or XAMPP/WAMP)
+  ✅ RabbitMQ     — Start RabbitMQ service
+                    (Start Menu → RabbitMQ → RabbitMQ Service - start)
+
+To start MySQL & RabbitMQ automatically with Windows, see STEP 6.
+
+==========================================================================
+STEP 5 — HOW TO RUN
+==========================================================================
+
+OPTION A — Simple .bat (recommended for beginners):
+  Double-click start-all.bat
+  → Opens 11 terminal windows, one per service
+  → Services start with 8s delay between each
+
+OPTION B — Smart PowerShell (recommended):
+  Right-click start-all.ps1 → Run with PowerShell
+  → Waits for each service to be ACTUALLY UP before starting the next
+  → Shows ✅ or ⚠️ for each service
+  → Much more reliable than fixed delays
+
+TO STOP ALL SERVICES:
+  Double-click stop-all.bat
+  OR Right-click stop-all.ps1 → Run with PowerShell
+  → Confirms before stopping
+  → Kills processes by port number (safe, only kills MediBook)
+
+==========================================================================
+STEP 6 — OPTIONAL: CREATE A DESKTOP SHORTCUT (ONE DOUBLE-CLICK LAUNCH)
+==========================================================================
+
+1. Right-click your Desktop → New → Shortcut
+2. Location:  powershell.exe -ExecutionPolicy Bypass -File "C:\path\to\scripts\start-all.ps1"
+3. Name it: 🚀 Start MediBook
+4. Right-click the shortcut → Properties → Change Icon → pick any icon
+
+Now you have a single double-click to launch all 11 services!
+
+==========================================================================
+STEP 7 — VERIFY EVERYTHING IS RUNNING
+==========================================================================
+
+After running start-all, open your browser:
+
+  Eureka Dashboard: http://localhost:8761
+  (All 11 services should appear as UP in green)
+
+  If a service shows as DOWN, check its terminal window for the error.
+
+==========================================================================
+SERVICE PORT MAP
+==========================================================================
+
+  eureka-server       → http://localhost:8761
+  auth-service        → http://localhost:8081
+  provider-service    → http://localhost:8082
+  schedule-service    → http://localhost:8083
+  appointment-service → http://localhost:8084
+  payment-service     → http://localhost:8085
+  review-service      → http://localhost:8086
+  notification-service → http://localhost:8087
+  record-service      → http://localhost:8088
+  admin-service       → http://localhost:8089
+  api-gateway         → http://localhost:8080  ← use this for all API calls
+
+==========================================================================
+TROUBLESHOOTING
+==========================================================================
+
+Problem: "mvn is not recognized as a command"
+Fix: Add Maven to your system PATH
+    → Search "Environment Variables" in Windows search
+    → Edit PATH → Add: C:\apache-maven-3.x.x\bin
+
+Problem: Port already in use
+Fix: Run stop-all.bat first, then start-all again
+
+Problem: Service shows as DOWN in Eureka
+Fix: Check that service's terminal window for the error message
+     Most common causes:
+     - MySQL not running (check MySQL service)
+     - Wrong DB_USERNAME/DB_PASSWORD
+     - RabbitMQ not running (for notification/appointment service)
+     - Missing .env variables (JWT_SECRET, MAIL_USERNAME, etc.)
+
+Problem: PowerShell says "cannot be loaded because running scripts is disabled"
+Fix: Run in PowerShell as Admin:
+     Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+==========================================================================
