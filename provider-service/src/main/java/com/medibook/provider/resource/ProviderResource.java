@@ -147,6 +147,21 @@ public class ProviderResource {
         return ResponseEntity.ok(Map.of("message", "Rating updated."));
     }
 
+    /**
+     * Doctor updates their consultation fee.
+     * URL: PUT /providers/{providerId}/fee?fee=800
+     */
+    @PutMapping("/{providerId}/fee")
+    public ResponseEntity<?> updateFee(
+            @PathVariable int providerId,
+            @RequestParam double fee) {
+        Provider updated = providerService.updateFee(providerId, fee);
+        return ResponseEntity.ok(Map.of(
+                "message", "Consultation fee updated successfully.",
+                "consultationFee", updated.getConsultationFee()
+        ));
+    }
+
     // ── Helper methods ────────────────────────────────────────────────
 
     /**
@@ -177,6 +192,7 @@ public class ProviderResource {
                 .isVerified(provider.isVerified())
                 .isAvailable(provider.isAvailable())
                 .createdAt(provider.getCreatedAt())
+                .consultationFee(provider.getConsultationFee())
                 .fullName(user != null ? user.getFullName() : "Provider #" + provider.getProviderId())
                 .email(user != null ? user.getEmail() : "")
                 .phone(user != null ? user.getPhone() : "")

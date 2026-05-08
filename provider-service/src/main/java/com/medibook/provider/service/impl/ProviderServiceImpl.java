@@ -57,6 +57,7 @@ public class ProviderServiceImpl implements ProviderService {
                 .bio(request.getBio())
                 .clinicName(request.getClinicName())
                 .clinicAddress(request.getClinicAddress())
+                .consultationFee(request.getConsultationFee() > 0 ? request.getConsultationFee() : 500.0)
                 // new doctor starts with zero rating
                 // updates automatically when patients review
                 .avgRating(0.0)
@@ -195,6 +196,9 @@ public class ProviderServiceImpl implements ProviderService {
         existing.setBio(request.getBio());
         existing.setClinicName(request.getClinicName());
         existing.setClinicAddress(request.getClinicAddress());
+        if (request.getConsultationFee() > 0) {
+            existing.setConsultationFee(request.getConsultationFee());
+        }
 
         // save updated provider to database and return
         return providerRepository.save(existing);
@@ -266,6 +270,33 @@ public class ProviderServiceImpl implements ProviderService {
 
         // delete from database
         providerRepository.deleteById(providerId);
+    }
+
+    /*
+     * Doctor updates their consultation fee.
+     *
+     * Doctor sets their own fee from their profile page.
+     * Patients pay this fee when booking an appointment.
+     * Fee must be >= 0.
+     */
+    @Override
+    public Provider updateFee(int providerId, double fee) {
+
+        // validate fee is not negative
+        if (fee < 0) {
+            throw new BadRequestException(
+                "Consultation fee cannot be negative."
+            );
+        }
+
+        // find the provider — throws 404 if not found
+        Provider provider = getProviderById(providerId);
+
+        // update the consultation fee
+        provider.setConsultationFee(fee);
+
+        // save to database and return
+        return providerRepository.save(provider);
     }
 
     /*

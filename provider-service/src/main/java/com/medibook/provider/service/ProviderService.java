@@ -27,6 +27,8 @@ public interface ProviderService {
 	
 	void updateRating(int providerId, double newRating);
 
+	Provider updateFee(int providerId, double fee);
+
 	List<Provider> getAllProviders();
 
 	List<Provider> getVerifiedAndAvailableProviders();

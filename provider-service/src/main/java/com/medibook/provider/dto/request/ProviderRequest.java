@@ -29,4 +29,7 @@ public class ProviderRequest {
  
     @NotBlank(message = "Clinic address is required")
     private String clinicAddress;
+    
+    @Min(value = 0, message = "Consultation fee cannot be negative")
+    private double consultationFee = 500.0;
 }
