@@ -1,13 +1,13 @@
-package com.medibook.provider;
+package com.medibook.schedule;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-class ProviderServiceApplicationTests {
+class ScheduleServiceApplicationTests {
 
     @Test
     void applicationClassExists() {
-        assertThat(ProviderServiceApplication.class).isNotNull();
+        assertThat(ScheduleServiceApplication.class).isNotNull();
     }
 }
