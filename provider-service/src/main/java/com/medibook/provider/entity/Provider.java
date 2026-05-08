@@ -39,6 +39,9 @@ public class Provider {
 
     private double avgRating = 0.0;
 
+    @Column(nullable = false)
+    private double consultationFee = 500.0;
+
     @Getter(AccessLevel.NONE)
     @Column(name = "is_verified", nullable = false, columnDefinition = "bit(1) default 0")
     private boolean verified = false;
