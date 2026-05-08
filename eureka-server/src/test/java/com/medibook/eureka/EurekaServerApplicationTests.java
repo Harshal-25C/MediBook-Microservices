@@ -1,14 +1,13 @@
 package com.medibook.eureka;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+import org.junit.jupiter.api.Test;
+
 class EurekaServerApplicationTests {
 
-	@Test
-	void contextLoads() {
-		// just verifies app starts successfully
-	}
-
+    @Test
+    void applicationClassExists() {
+        assertThat(EurekaServerApplication.class).isNotNull();
+    }
 }

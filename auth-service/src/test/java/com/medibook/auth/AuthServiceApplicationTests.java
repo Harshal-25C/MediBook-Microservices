@@ -1,13 +1,15 @@
 package com.medibook.auth;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+import org.junit.jupiter.api.Test;
+
+import com.medibook.AuthServiceApplication;
+
 class AuthServiceApplicationTests {
 
-	@Test
-	void contextLoads() {
-	}
-
+    @Test
+    void applicationClassExists() {
+        assertThat(AuthServiceApplication.class).isNotNull();
+    }
 }

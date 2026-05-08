@@ -6,12 +6,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -136,6 +140,24 @@ class PaymentServiceImplTest {
         verify(paymentRepository, never()).save(any());
     }
 
+    @Test
+    @DisplayName("initiatePayment: gateway failure is converted to BadRequestException")
+    void initiatePayment_gatewayFailure_throwsBadRequest() {
+        PaymentRequest req = new PaymentRequest();
+        req.setAppointmentId(1);
+        req.setPatientId(2);
+        req.setAmount(500.0);
+        req.setCurrency("INR");
+        req.setPaymentMethod("UPI");
+
+        when(appointmentClient.getById(1)).thenReturn(scheduledAppointment);
+        when(paymentRepository.findByAppointmentId(1)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> paymentService.initiatePayment(req))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("Razorpay");
+    }
+
     /* ── verifyPayment() ────────────────────────────────────── */
 
     @Test
@@ -161,6 +183,101 @@ class PaymentServiceImplTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
+    @Test
+    @DisplayName("verifyPayment: MOCK order marks payment SUCCESS and updates appointment")
+    void verifyPayment_mockOrder_success() {
+        Payment pending = Payment.builder()
+                .paymentId(100)
+                .appointmentId(1)
+                .patientId(2)
+                .amount(500.0)
+                .currency("INR")
+                .paymentMethod("UPI")
+                .status("PENDING")
+                .razorpayOrderId("MOCK_ORDER_1")
+                .createdAt(LocalDateTime.now())
+                .build();
+        when(paymentRepository.findByRazorpayOrderId("MOCK_ORDER_1"))
+                .thenReturn(Optional.of(pending));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentResponse response = paymentService.verifyPayment("MOCK_ORDER_1", "pay_mock", "ignored");
+
+        assertThat(response.getStatus()).isEqualTo("SUCCESS");
+        verify(appointmentClient).updateStatus(1, "SCHEDULED");
+    }
+
+    @Test
+    @DisplayName("verifyPayment: remains successful when appointment update fails")
+    void verifyPayment_appointmentUpdateFailure_stillSuccess() {
+        Payment pending = Payment.builder()
+                .paymentId(102)
+                .appointmentId(1)
+                .patientId(2)
+                .amount(500.0)
+                .currency("INR")
+                .paymentMethod("UPI")
+                .status("PENDING")
+                .razorpayOrderId("MOCK_ORDER_2")
+                .createdAt(LocalDateTime.now())
+                .build();
+        when(paymentRepository.findByRazorpayOrderId("MOCK_ORDER_2")).thenReturn(Optional.of(pending));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(new RuntimeException("appointment down")).when(appointmentClient).updateStatus(1, "SCHEDULED");
+
+        PaymentResponse response = paymentService.verifyPayment("MOCK_ORDER_2", "pay_mock_2", "ignored");
+
+        assertThat(response.getStatus()).isEqualTo("SUCCESS");
+    }
+
+    @Test
+    @DisplayName("verifyRazorpaySignature: accepts a real HMAC signature")
+    void verifyRazorpaySignature_validHmac_returnsTrue() throws Exception {
+        String orderId = "order_123";
+        String paymentId = "pay_123";
+        String signature = hmac(orderId + "|" + paymentId, "mock_secret");
+
+        Boolean valid = ReflectionTestUtils.invokeMethod(
+                paymentService, "verifyRazorpaySignature", orderId, paymentId, signature);
+
+        assertThat(valid).isTrue();
+    }
+
+    @Test
+    @DisplayName("verifyRazorpaySignature: wraps crypto errors in BadRequestException")
+    void verifyRazorpaySignature_cryptoError_throwsBadRequest() {
+        ReflectionTestUtils.setField(paymentService, "razorpayKeySecret", null);
+
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(
+                paymentService, "verifyRazorpaySignature", "order_123", "pay_123", "sig"))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("Signature verification failed");
+
+        ReflectionTestUtils.setField(paymentService, "razorpayKeySecret", "mock_secret");
+    }
+
+    @Test
+    @DisplayName("verifyPayment: invalid signature marks payment FAILED")
+    void verifyPayment_invalidSignature_marksFailed() {
+        Payment pending = Payment.builder()
+                .paymentId(100)
+                .appointmentId(1)
+                .patientId(2)
+                .amount(500.0)
+                .currency("INR")
+                .paymentMethod("UPI")
+                .status("PENDING")
+                .razorpayOrderId("order_real")
+                .createdAt(LocalDateTime.now())
+                .build();
+        when(paymentRepository.findByRazorpayOrderId("order_real"))
+                .thenReturn(Optional.of(pending));
+
+        assertThatThrownBy(() -> paymentService.verifyPayment("order_real", "pay_real", "bad-signature"))
+                .isInstanceOf(BadRequestException.class);
+        verify(paymentRepository).save(argThat(p -> p.getStatus().equals("FAILED")));
+    }
+
     /* ── initiateRefund() ───────────────────────────────────── */
 
     @Test
@@ -180,6 +297,28 @@ class PaymentServiceImplTest {
 
         assertThatThrownBy(() -> paymentService.initiateRefund(999))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("initiateRefund: simulated payment id marks payment REFUNDED")
+    void initiateRefund_simulatedPayment_success() {
+        successPayment.setRazorpayPaymentId("TXN_LOCAL_1");
+        when(paymentRepository.findByPaymentId(101)).thenReturn(Optional.of(successPayment));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentResponse response = paymentService.initiateRefund(101);
+
+        assertThat(response.getStatus()).isEqualTo("REFUNDED");
+    }
+
+    @Test
+    @DisplayName("callRefundGateway: treats null and non-pay ids as simulated refunds")
+    void callRefundGateway_simulatedIds_returnTrue() {
+        Boolean nullResult = ReflectionTestUtils.invokeMethod(paymentService, "callRefundGateway", (String) null);
+        Boolean localResult = ReflectionTestUtils.invokeMethod(paymentService, "callRefundGateway", "LOCAL_1");
+
+        assertThat(nullResult).isTrue();
+        assertThat(localResult).isTrue();
     }
 
     /* ── getPaymentByAppointment() ──────────────────────────── */
@@ -206,6 +345,17 @@ class PaymentServiceImplTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
+    @Test
+    @DisplayName("getPaymentById: returns payment and throws when missing")
+    void getPaymentById_paths() {
+        when(paymentRepository.findByPaymentId(101)).thenReturn(Optional.of(successPayment));
+        when(paymentRepository.findByPaymentId(404)).thenReturn(Optional.empty());
+
+        assertThat(paymentService.getPaymentById(101).getPaymentId()).isEqualTo(101);
+        assertThatThrownBy(() -> paymentService.getPaymentById(404))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
     /* ── getPaymentsByPatient() ─────────────────────────────── */
 
     @Test
@@ -228,6 +378,14 @@ class PaymentServiceImplTest {
         List<Payment> result = paymentService.getPaymentsByPatient(99);
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("getPaymentsByProvider: delegates to provider payment query")
+    void getPaymentsByProvider_returnsList() {
+        when(paymentRepository.findPaymentsByProvider(3)).thenReturn(List.of(successPayment));
+
+        assertThat(paymentService.getPaymentsByProvider(3)).containsExactly(successPayment);
     }
 
     /* ── getTotalRevenue() ──────────────────────────────────── */
@@ -271,6 +429,15 @@ class PaymentServiceImplTest {
         verify(paymentRepository, never()).findByPaymentId(anyInt());
     }
 
+    @Test
+    @DisplayName("updatePaymentStatus: throws ResourceNotFoundException for missing payment")
+    void updatePaymentStatus_missingPayment_throwsException() {
+        when(paymentRepository.findByPaymentId(404)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> paymentService.updatePaymentStatus(404, "SUCCESS"))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
     /* ── getPaymentsByStatus() ──────────────────────────────── */
 
     @Test
@@ -290,5 +457,20 @@ class PaymentServiceImplTest {
         assertThatThrownBy(() -> paymentService.getPaymentsByStatus("WRONG_STATUS"))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("Invalid status");
+    }
+
+    private String hmac(String message, String secret) throws Exception {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(secret.getBytes("UTF-8"), "HmacSHA256"));
+        byte[] hash = mac.doFinal(message.getBytes("UTF-8"));
+        StringBuilder hex = new StringBuilder();
+        for (byte b : hash) {
+            String part = Integer.toHexString(0xff & b);
+            if (part.length() == 1) {
+                hex.append('0');
+            }
+            hex.append(part);
+        }
+        return hex.toString();
     }
 }
