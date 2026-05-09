@@ -4,13 +4,13 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.2.0</version>
-		<relativePath /> <!-- lookup parent from repository -->
+		<groupId>com.medibook</groupId>
+		<artifactId>medibook-parent</artifactId>
+		<version>1.0.0</version>
+		<relativePath>../pom.xml</relativePath>
 	</parent>
 	<groupId>com.medibook </groupId>
-	<artifactId>medibook-parent</artifactId>
+	<artifactId>auth-service</artifactId>
 	<version>1.0.0</version>
 	<name>Auth Service</name>
 	<description>Authentication, JWT, OAuth2, User Management</description>
@@ -27,10 +27,6 @@
 		<tag />
 		<url />
 	</scm>
-	<properties>
-		<java.version>17</java.version>
-		<spring-cloud.version>2023.0.3</spring-cloud.version>
-	</properties>
 
 	<dependencyManagement>
 		<dependencies>
@@ -110,14 +106,6 @@
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
-			<optional>true</optional>
-		</dependency>
-
-		<!-- DevTools -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-devtools</artifactId>
-			<scope>runtime</scope>
 			<optional>true</optional>
 		</dependency>
 
