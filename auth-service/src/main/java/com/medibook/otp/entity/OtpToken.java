@@ -30,6 +30,7 @@ public class OtpToken {
 
     // false = not yet verified, true = already used
     @Column(nullable = false)
+    @Builder.Default
     private boolean used = false;
 
     @PrePersist

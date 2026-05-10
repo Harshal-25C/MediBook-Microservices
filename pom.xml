@@ -38,6 +38,21 @@
 		<jjwt.version>0.11.5</jjwt.version>
 		<mapstruct.version>1.5.5.Final</mapstruct.version>
 		<lombok.version>1.18.30</lombok.version>
+
+		<sonar.host.url>http://localhost:9000</sonar.host.url>
+		<sonar.projectKey>medibook-backend</sonar.projectKey>
+		<sonar.projectName>MediBook Backend</sonar.projectName>
+		<sonar.coverage.jacoco.xmlReportPaths>
+			${project.build.directory}/site/jacoco/jacoco.xml
+		</sonar.coverage.jacoco.xmlReportPaths>
+		<sonar.exclusions>
+			**/generated/**,
+			**/*Application.java,
+			**/entity/**,
+			**/dto/**,
+			**/config/OpenApiConfig.java
+		</sonar.exclusions>
+		<sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
 	</properties>
 
 	<dependencyManagement>
@@ -154,6 +169,13 @@
 						</configuration>
 					</execution>
 				</executions>
+			</plugin>
+
+			<!-- SonarQube Plugin -->
+			<plugin>
+				<groupId>org.sonarsource.scanner.maven</groupId>
+				<artifactId>sonar-maven-plugin</artifactId>
+				<version>3.10.0.2594</version>
 			</plugin>
 
 		</plugins>

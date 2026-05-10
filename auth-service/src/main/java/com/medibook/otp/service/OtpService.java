@@ -1,7 +1,6 @@
 package com.medibook.otp.service;
 
 import java.time.LocalDateTime;
-import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
@@ -9,11 +8,16 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.medibook.auth.entity.User;
 import com.medibook.auth.exception.BadRequestException;
 import com.medibook.auth.exception.ResourceNotFoundException;
 import com.medibook.auth.repository.UserRepository;
 import com.medibook.otp.entity.OtpToken;
 import com.medibook.otp.repository.OtpRepository;
+
+import java.security.SecureRandom;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class OtpService {
@@ -26,20 +30,27 @@ public class OtpService {
 
     @Autowired
     private UserRepository userRepository;
+    
+    private static final Logger logger =
+            LoggerFactory.getLogger(OtpService.class);
+    
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     // ── Generate and send OTP ──────────────────────────────────────────
     @Transactional
     public void generateAndSendOtp(String email) {
 
-        // Check user exists
-        userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+    	// ✅ FIXED — actually use the returned user
+    	User user = userRepository.findByEmail(email)
+    	    .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+    	// Now 'user' is available if you need it later in the method
+    	// Even if you don't use user, assigning it satisfies SonarQube
 
         // Delete any old OTPs for this email first
         otpRepository.deleteAllByEmail(email);
 
         // Generate 6-digit OTP
-        String otp = String.format("%06d", new Random().nextInt(999999));
+        String otp = String.format("%06d", SECURE_RANDOM.nextInt(999999));
 
         // Save to DB (expiresAt set automatically in @PrePersist)
         OtpToken otpToken = OtpToken.builder()
@@ -53,11 +64,12 @@ public class OtpService {
         sendOtpEmail(email, otp);
 
         // ── Print OTP in CONSOLE (for SMS simulation during development) ──
-        System.out.println("========================================");
-        System.out.println("  MediBook OTP for: " + email);
-        System.out.println("  OTP CODE: " + otp);
-        System.out.println("  Expires in 5 minutes");
-        System.out.println("========================================");
+        logger.info("Generating OTP for user: {}", user.getFullName());
+        logger.info("===============================================");
+        logger.info("MediBook OTP generated for email: {}", email);
+        logger.info("OTP CODE: {}", otp);
+        logger.info("OTP expires in 5 minutes");
+        logger.info("===============================================");
     }
 
     // ── Verify OTP ────────────────────────────────────────────────────

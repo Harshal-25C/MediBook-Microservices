@@ -79,7 +79,7 @@ public class SecurityConfig {
              */
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                .sessionFixation().none()
+                .sessionFixation().migrateSession()
             )
 
             /*

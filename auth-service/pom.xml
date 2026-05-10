@@ -28,6 +28,10 @@
 		<url />
 	</scm>
 
+	<properties>
+		<sonar.moduleKey>medibook-backend:auth-service</sonar.moduleKey>
+	</properties> 
+
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
@@ -90,7 +94,7 @@
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- Java Mail (email notifications) -->
+		<!-- SMTP Java Mail (email notifications) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-mail</artifactId>
@@ -126,16 +130,6 @@
 			<artifactId>jjwt-jackson</artifactId>
 			<version>0.11.5</version>
 			<scope>runtime</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-actuator</artifactId>
-		</dependency>
-
-		<!-- Mail (SMTP for OTP) -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
 
 		<!-- Redis (OTP + token blacklist) -->

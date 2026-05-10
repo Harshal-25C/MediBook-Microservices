@@ -113,6 +113,7 @@ public class Payment {
      * Default is PENDING when payment first initiated.
      */
     @Column(nullable = false)
+    @Builder.Default
     private String status = "PENDING";
 
     /*

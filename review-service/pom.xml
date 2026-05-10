@@ -13,6 +13,10 @@
 	<artifactId>review-service</artifactId>
 	<version>1.0.0</version>
 
+	<properties>
+		<sonar.moduleKey>medibook-backend:review-service</sonar.moduleKey>
+	</properties> 
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

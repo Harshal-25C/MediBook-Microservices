@@ -15,6 +15,10 @@
 	<name>Eureka Server</name>
 	<description>Service Discovery Server for MediBook Microservices</description>
 
+	<properties>
+		<sonar.moduleKey>medibook-backend:eureka-server</sonar.moduleKey>
+	</properties>
+	
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>

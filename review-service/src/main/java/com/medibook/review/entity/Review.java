@@ -64,6 +64,7 @@ public class Review {
      * false = show actual patient name
      */
     @Column(nullable = false)
+    @Builder.Default
     private boolean isAnonymous = false;
 
     // Auto set when review first created.

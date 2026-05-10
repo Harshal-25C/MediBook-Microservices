@@ -34,6 +34,7 @@ public class User {
     private String provider;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean isActive = true;
 
     @Column(nullable = false, updatable = false)
