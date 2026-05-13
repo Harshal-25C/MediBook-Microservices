@@ -24,6 +24,8 @@ import com.medibook.auth.security.JwtUtil;
 import com.medibook.auth.service.AuthService;
 import com.medibook.otp.service.OtpService;
 
+import java.security.SecureRandom;
+
 @Service
 public class AuthServiceImpl implements AuthService {
 
@@ -44,6 +46,10 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private JavaMailSender mailSender;
+    
+    // ✅ FIXED — declare once as a class field at the top of AuthServiceImpl
+    // Add this as a field in the class (with other @Autowired fields):
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     //  register()
     @Override
@@ -299,7 +305,7 @@ public class AuthServiceImpl implements AuthService {
         String token = UUID.randomUUID().toString();
 
         // Generate 6-digit OTP
-        String otp = String.format("%06d", new java.util.Random().nextInt(999999));
+        String otp = String.format("%06d", SECURE_RANDOM.nextInt(999999));
 
         // Save to DB
         PasswordResetToken resetToken = PasswordResetToken.builder()

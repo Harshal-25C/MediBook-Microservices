@@ -72,6 +72,7 @@ public class Notification {
      * Default false — all new notifications unread.
      */
     @Column(nullable = false)
+    @Builder.Default
     private boolean isRead = false;
 
     /*

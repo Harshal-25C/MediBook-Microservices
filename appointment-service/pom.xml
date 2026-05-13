@@ -13,7 +13,11 @@
 	<artifactId>appointment-service</artifactId>
 	<version>1.0.0</version>
 	<name>appointment-service</name>
-	
+
+	<properties>
+		<sonar.moduleKey>medibook-backend:appointment-service</sonar.moduleKey>
+	</properties> 
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

@@ -28,11 +28,11 @@ app:
   admins:
     - fullName: Harshal Choudhary
       email: harshalchoudhary340@gmail.com
-      password: ${ADMIN_PASSWORD-1}
+      password: ${ADMIN_PASSWORD_1}
 
     - fullName: Anvii Patil
       email: obsidian.neoharshal@gmail.com
-      password: ${ADMIN_PASSWORD-2}
+      password: ${ADMIN_PASSWORD_2}
 
 jwt:
   secret: ${JWT_SECRET}

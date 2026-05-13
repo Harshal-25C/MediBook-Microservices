@@ -12,7 +12,11 @@
 	<groupId>com.medibook</groupId>
 	<artifactId>record-service</artifactId>
 	<version>1.0.0</version>
-	
+
+	<properties>
+		<sonar.moduleKey>medibook-backend:record-service</sonar.moduleKey>
+	</properties> 
+
 	<dependencies>
 		<!-- All Required Dependencies -->
 		<dependency>

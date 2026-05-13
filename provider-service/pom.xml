@@ -13,6 +13,10 @@
 	<version>1.0.0</version>
 	<name>provider-service</name>
 	<description>MediBook Provider Service</description>
+
+	<properties>
+		<sonar.moduleKey>medibook-backend:provider-service</sonar.moduleKey>
+	</properties> 
 	
 	<dependencyManagement>
 		<dependencies>
@@ -93,10 +97,6 @@
 			<artifactId>jjwt-jackson</artifactId>
 			<version>0.11.5</version>
 			<scope>runtime</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 	</dependencies>
 	<build>

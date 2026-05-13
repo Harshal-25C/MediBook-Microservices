@@ -85,7 +85,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://admin:medibook123@localhost:8761/eureka/
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://admin:medibook123@localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
 

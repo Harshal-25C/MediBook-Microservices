@@ -12,7 +12,11 @@
 	<groupId>com.medibook</groupId>
 	<artifactId>notification-service</artifactId>
 	<version>1.0.0</version>
-	
+
+	<properties>
+		<sonar.moduleKey>medibook-backend:notification-service</sonar.moduleKey>
+	</properties> 
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

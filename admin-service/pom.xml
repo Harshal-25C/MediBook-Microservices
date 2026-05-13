@@ -18,6 +18,10 @@
 	<description>MediBook Admin Service – pre-seeds configured admins and
 		exposes admin management APIs</description>
 
+	<properties>
+		<sonar.moduleKey>medibook-backend:admin-service</sonar.moduleKey>
+	</properties> 
+
 
 	<dependencyManagement>
 		<dependencies>

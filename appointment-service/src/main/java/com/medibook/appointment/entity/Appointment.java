@@ -45,6 +45,7 @@ public class Appointment {
     private LocalTime endTime;
 
     @Column(nullable = false)
+    @Builder.Default
     private String status = "SCHEDULED";
 
     private String notes;

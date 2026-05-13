@@ -69,6 +69,7 @@ public class AvailabilitySlot {
      * Patients only see slots where isBooked = false
      */
     @Column(nullable = false)
+    @Builder.Default
     private boolean isBooked = false;
 
     /*
@@ -81,6 +82,7 @@ public class AvailabilitySlot {
      * This is a strict PDF requirement.
      */
     @Column(nullable = false)
+    @Builder.Default
     private boolean isBlocked = false;
 
     /*
@@ -93,6 +95,7 @@ public class AvailabilitySlot {
      * Stored for reference — helps doctor identify
      * which slots were auto generated.
      */
+    @Builder.Default
     private String recurrence = "NONE";
 
     /*

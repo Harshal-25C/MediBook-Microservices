@@ -4,9 +4,9 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import com.medibook.notification.client.UserClient;
@@ -17,6 +17,9 @@ import com.medibook.notification.exception.BadRequestException;
 import com.medibook.notification.exception.ResourceNotFoundException;
 import com.medibook.notification.repository.NotificationRepository;
 import com.medibook.notification.service.NotificationService;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class NotificationServiceImpl implements NotificationService {
@@ -38,6 +41,9 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Value("${spring.mail.username}")
     private String senderEmail;
+    
+    private static final Logger logger =
+            LoggerFactory.getLogger(NotificationServiceImpl.class);
 
     @Override
     public Notification send(NotificationRequest request) {
@@ -149,9 +155,13 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void deleteNotification(int notificationId) {
-        notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Notification", "id", notificationId));
-        notificationRepository.deleteByNotificationId(notificationId);
+    	// ✅ FIXED — assign to variable
+    	Notification notification = notificationRepository.findById(notificationId)
+    	    .orElseThrow(() -> new ResourceNotFoundException("Notification", "id", notificationId));
+    	notificationRepository.deleteByNotificationId(notificationId);
+    	// 'notification' variable confirms the entity exists before deleting
+    	logger.info("Notification is deleted!" + notification.getMessage());
+    	
     }
 
     @Override

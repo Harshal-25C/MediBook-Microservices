@@ -37,16 +37,20 @@ public class Provider {
     @Column(nullable = false)
     private String clinicAddress;
 
+    @Builder.Default
     private double avgRating = 0.0;
 
+    @Builder.Default
     @Column(nullable = false)
     private double consultationFee = 500.0;
 
     @Getter(AccessLevel.NONE)
     @Column(name = "is_verified", nullable = false, columnDefinition = "bit(1) default 0")
+    @Builder.Default
     private boolean verified = false;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean isAvailable = true;
     
     @Column(nullable = false, updatable = false)
