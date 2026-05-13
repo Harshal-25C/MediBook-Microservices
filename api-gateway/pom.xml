@@ -17,8 +17,8 @@
 
 	<properties>
 		<sonar.moduleKey>medibook-backend:api-gateway</sonar.moduleKey>
-	</properties> 
-	
+	</properties>
+
 	<dependencies>
 		<!-- Spring Cloud Gateway — uses WebFlux (reactive), NOT
 		spring-boot-starter-web -->
@@ -31,6 +31,18 @@
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+		</dependency>
+
+		<!-- Fix: Provide httpclient5 that Spring Cloud Eureka needs -->
+		<dependency>
+			<groupId>org.apache.httpcomponents.client5</groupId>
+			<artifactId>httpclient5</artifactId>
+			<version>5.3.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents.core5</groupId>
+			<artifactId>httpcore5</artifactId>
+			<version>5.2.4</version>
 		</dependency>
 
 		<!-- Actuator -->

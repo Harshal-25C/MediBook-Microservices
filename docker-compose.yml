@@ -1,6 +1,6 @@
-# ─────────────────────────────────────────────────────────────────
-# MediBook — Full Stack Docker Compose
-# ─────────────────────────────────────────────────────────────────
+﻿# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# MediBook â€” Full Stack Docker Compose
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 networks:
   medibook-net:
@@ -20,12 +20,13 @@ x-spring-env: &spring-env
   DB_PASSWORD: ${DB_PASSWORD:-medibook_pass}
   JWT_SECRET: ${JWT_SECRET}
   EUREKA_DEFAULT_ZONE: http://admin:medibook123@eureka-server:8761/eureka/
+  EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
   MAIL_USERNAME: ${MAIL_USERNAME}
   MAIL_PASSWORD: ${MAIL_PASSWORD}
 
 services:
 
-  # ── INFRASTRUCTURE ─────────────────────────────────────────────
+  # â”€â”€ INFRASTRUCTURE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   mysql:
     <<: *service-defaults
@@ -40,7 +41,12 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
-    # NO healthcheck — services use Spring retry to connect
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 2m
 
   rabbitmq:
     <<: *service-defaults
@@ -55,12 +61,13 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
+      test: ["CMD-SHELL", "nc -z -w 2 localhost 5672"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 2m
 
-  # ── SERVICE REGISTRY ───────────────────────────────────────────
+  # â”€â”€ SERVICE REGISTRY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   eureka-server:
     <<: *service-defaults
@@ -71,9 +78,14 @@ services:
     container_name: medibook-eureka
     ports:
       - "8761:8761"
-    # NO healthcheck — curl not in JRE alpine; services retry on their own
+    healthcheck:
+      test: ["CMD-SHELL", "wget -T 2 -q --spider --header 'Authorization: Basic YWRtaW46bWVkaWJvb2sxMjM=' http://127.0.0.1:8761/eureka/apps/"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 2m
 
-  # ── API GATEWAY ────────────────────────────────────────────────
+  # â”€â”€ API GATEWAY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   api-gateway:
     <<: *service-defaults
@@ -86,10 +98,18 @@ services:
       - "8080:8080"
     environment:
       <<: *spring-env
+      EUREKA_INSTANCE_HOSTNAME: api-gateway
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -w 2 localhost 8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10m
     depends_on:
-      - eureka-server
+      eureka-server:
+        condition: service_healthy
 
-  # ── MICROSERVICES ──────────────────────────────────────────────
+  # â”€â”€ MICROSERVICES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   auth-service:
     <<: *service-defaults
@@ -103,13 +123,22 @@ services:
     environment:
       <<: *spring-env
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/auth_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      EUREKA_INSTANCE_HOSTNAME: auth-service
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      ADMIN_PASSWORD_1: ${ADMIN_PASSWORD-1}
-      ADMIN_PASSWORD_2: ${ADMIN_PASSWORD-2}
+      ADMIN_PASSWORD_1: ${ADMIN_PASSWORD_1}
+      ADMIN_PASSWORD_2: ${ADMIN_PASSWORD_2}
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -w 2 localhost 8081"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10m
     depends_on:
-      - mysql
-      - eureka-server
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
 
   provider-service:
     <<: *service-defaults
@@ -123,9 +152,18 @@ services:
     environment:
       <<: *spring-env
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/provider_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      EUREKA_INSTANCE_HOSTNAME: provider-service
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -w 2 localhost 8082"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10m
     depends_on:
-      - mysql
-      - eureka-server
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
 
   schedule-service:
     <<: *service-defaults
@@ -139,9 +177,18 @@ services:
     environment:
       <<: *spring-env
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/schedule_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      EUREKA_INSTANCE_HOSTNAME: schedule-service
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -w 2 localhost 8083"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10m
     depends_on:
-      - mysql
-      - eureka-server
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
 
   appointment-service:
     <<: *service-defaults
@@ -156,10 +203,20 @@ services:
       <<: *spring-env
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/appointment_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_RABBITMQ_HOST: rabbitmq
+      EUREKA_INSTANCE_HOSTNAME: appointment-service
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -w 2 localhost 8084"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10m
     depends_on:
-      - mysql
-      - rabbitmq
-      - eureka-server
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
 
   payment-service:
     <<: *service-defaults
@@ -173,11 +230,20 @@ services:
     environment:
       <<: *spring-env
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/payment_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      RAZORPAY-API-KEY: ${RAZORPAY-API-KEY}
-      RAZORPAY-KEY-SECRET: ${RAZORPAY-KEY-SECRET}
+      EUREKA_INSTANCE_HOSTNAME: payment-service
+      RAZORPAY_API_KEY: ${RAZORPAY_API_KEY}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -w 2 localhost 8085"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10m
     depends_on:
-      - mysql
-      - eureka-server
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
 
   review-service:
     <<: *service-defaults
@@ -191,9 +257,18 @@ services:
     environment:
       <<: *spring-env
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/review_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      EUREKA_INSTANCE_HOSTNAME: review-service
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -w 2 localhost 8086"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10m
     depends_on:
-      - mysql
-      - eureka-server
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
 
   notification-service:
     <<: *service-defaults
@@ -208,10 +283,20 @@ services:
       <<: *spring-env
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/notification_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_RABBITMQ_HOST: rabbitmq
+      EUREKA_INSTANCE_HOSTNAME: notification-service
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -w 2 localhost 8087"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10m
     depends_on:
-      - mysql
-      - rabbitmq
-      - eureka-server
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
 
   record-service:
     <<: *service-defaults
@@ -225,9 +310,18 @@ services:
     environment:
       <<: *spring-env
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/record_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      EUREKA_INSTANCE_HOSTNAME: record-service
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -w 2 localhost 8088"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10m
     depends_on:
-      - mysql
-      - eureka-server
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
 
   admin-service:
     <<: *service-defaults
@@ -241,8 +335,19 @@ services:
     environment:
       <<: *spring-env
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/auth_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      ADMIN_PASSWORD_1: ${ADMIN_PASSWORD-1}
-      ADMIN_PASSWORD_2: ${ADMIN_PASSWORD-2}
+      EUREKA_INSTANCE_HOSTNAME: admin-service
+      ADMIN_PASSWORD_1: ${ADMIN_PASSWORD_1}
+      ADMIN_PASSWORD_2: ${ADMIN_PASSWORD_2}
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z -w 2 localhost 8089"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10m
     depends_on:
-      - mysql
-      - eureka-server
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+
