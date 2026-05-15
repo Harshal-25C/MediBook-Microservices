@@ -1,353 +1,274 @@
-﻿# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# MediBook â€” Full Stack Docker Compose
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-networks:
-  medibook-net:
-    driver: bridge
-
-volumes:
-  mysql_data:
-  rabbitmq_data:
-
-x-service-defaults: &service-defaults
-  networks:
-    - medibook-net
-  restart: unless-stopped
-
-x-spring-env: &spring-env
-  DB_USERNAME: ${DB_USERNAME:-medibook_user}
-  DB_PASSWORD: ${DB_PASSWORD:-medibook_pass}
-  JWT_SECRET: ${JWT_SECRET}
-  EUREKA_DEFAULT_ZONE: http://admin:medibook123@eureka-server:8761/eureka/
-  EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
-  MAIL_USERNAME: ${MAIL_USERNAME}
-  MAIL_PASSWORD: ${MAIL_PASSWORD}
-
 services:
 
-  # â”€â”€ INFRASTRUCTURE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
+  # ── MySQL ─────────────────────────────────────────────────────────────────────
   mysql:
-    <<: *service-defaults
     image: mysql:8.0
     container_name: medibook-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
-      MYSQL_USER: ${DB_USERNAME:-medibook_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-medibook_pass}
-    ports:
-      - "3307:3306"
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
-      timeout: 5s
-      retries: 20
-      start_period: 2m
+      timeout: 20s
+      retries: 10
 
+  # ── RabbitMQ ──────────────────────────────────────────────────────────────────
   rabbitmq:
-    <<: *service-defaults
-    image: rabbitmq:3.12-management-alpine
+    image: rabbitmq:3-management
     container_name: medibook-rabbitmq
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
     ports:
       - "5672:5672"
       - "15672:15672"
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     healthcheck:
-      test: ["CMD-SHELL", "nc -z -w 2 localhost 5672"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 2m
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      timeout: 20s
+      retries: 10
 
-  # â”€â”€ SERVICE REGISTRY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
+  # ── Eureka Server ─────────────────────────────────────────────────────────────
   eureka-server:
-    <<: *service-defaults
-    build:
-      context: ./eureka-server
-      dockerfile: Dockerfile
-    image: ${DOCKERHUB_USERNAME:-httpsharsh}/medibook-eureka-server:${IMAGE_TAG:-latest}
+    build: ./eureka-server
     container_name: medibook-eureka
     ports:
       - "8761:8761"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -T 2 -q --spider --header 'Authorization: Basic YWRtaW46bWVkaWJvb2sxMjM=' http://127.0.0.1:8761/eureka/apps/"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 2m
-
-  # â”€â”€ API GATEWAY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-  api-gateway:
-    <<: *service-defaults
-    build:
-      context: ./api-gateway
-      dockerfile: Dockerfile
-    image: ${DOCKERHUB_USERNAME:-httpsharsh}/medibook-api-gateway:${IMAGE_TAG:-latest}
-    container_name: medibook-gateway
-    ports:
-      - "8080:8080"
-    environment:
-      <<: *spring-env
-      EUREKA_INSTANCE_HOSTNAME: api-gateway
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z -w 2 localhost 8080"]
-      interval: 10s
-      timeout: 5s
-      retries: 18
-      start_period: 10m
     depends_on:
-      eureka-server:
+      mysql:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8761 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
 
-  # â”€â”€ MICROSERVICES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
+  # ── Auth Service ──────────────────────────────────────────────────────────────
   auth-service:
-    <<: *service-defaults
-    build:
-      context: ./auth-service
-      dockerfile: Dockerfile
-    image: ${DOCKERHUB_USERNAME:-httpsharsh}/medibook-auth-service:${IMAGE_TAG:-latest}
+    build: ./auth-service
     container_name: medibook-auth
     ports:
       - "8081:8081"
     environment:
-      <<: *spring-env
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/auth_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      EUREKA_INSTANCE_HOSTNAME: auth-service
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      ADMIN_PASSWORD_1: ${ADMIN_PASSWORD_1}
-      ADMIN_PASSWORD_2: ${ADMIN_PASSWORD_2}
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z -w 2 localhost 8081"]
-      interval: 10s
-      timeout: 5s
-      retries: 18
-      start_period: 10m
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/auth_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:medibook123@eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_HOSTNAME=auth-service
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
+      - EUREKA_INSTANCE_INSTANCE_ID=auth-service:8081
+      - JWT_SECRET=${JWT_SECRET}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
 
-  provider-service:
-    <<: *service-defaults
-    build:
-      context: ./provider-service
-      dockerfile: Dockerfile
-    image: ${DOCKERHUB_USERNAME:-httpsharsh}/medibook-provider-service:${IMAGE_TAG:-latest}
-    container_name: medibook-provider
-    ports:
-      - "8082:8082"
-    environment:
-      <<: *spring-env
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/provider_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      EUREKA_INSTANCE_HOSTNAME: provider-service
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z -w 2 localhost 8082"]
-      interval: 10s
-      timeout: 5s
-      retries: 18
-      start_period: 10m
-    depends_on:
-      mysql:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
-
-  schedule-service:
-    <<: *service-defaults
-    build:
-      context: ./schedule-service
-      dockerfile: Dockerfile
-    image: ${DOCKERHUB_USERNAME:-httpsharsh}/medibook-schedule-service:${IMAGE_TAG:-latest}
-    container_name: medibook-schedule
-    ports:
-      - "8083:8083"
-    environment:
-      <<: *spring-env
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/schedule_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      EUREKA_INSTANCE_HOSTNAME: schedule-service
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z -w 2 localhost 8083"]
-      interval: 10s
-      timeout: 5s
-      retries: 18
-      start_period: 10m
-    depends_on:
-      mysql:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
-
-  appointment-service:
-    <<: *service-defaults
-    build:
-      context: ./appointment-service
-      dockerfile: Dockerfile
-    image: ${DOCKERHUB_USERNAME:-httpsharsh}/medibook-appointment-service:${IMAGE_TAG:-latest}
-    container_name: medibook-appointment
-    ports:
-      - "8084:8084"
-    environment:
-      <<: *spring-env
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/appointment_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_RABBITMQ_HOST: rabbitmq
-      EUREKA_INSTANCE_HOSTNAME: appointment-service
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z -w 2 localhost 8084"]
-      interval: 10s
-      timeout: 5s
-      retries: 18
-      start_period: 10m
-    depends_on:
-      mysql:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
-
-  payment-service:
-    <<: *service-defaults
-    build:
-      context: ./payment-service
-      dockerfile: Dockerfile
-    image: ${DOCKERHUB_USERNAME:-httpsharsh}/medibook-payment-service:${IMAGE_TAG:-latest}
-    container_name: medibook-payment
-    ports:
-      - "8085:8085"
-    environment:
-      <<: *spring-env
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/payment_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      EUREKA_INSTANCE_HOSTNAME: payment-service
-      RAZORPAY_API_KEY: ${RAZORPAY_API_KEY}
-      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z -w 2 localhost 8085"]
-      interval: 10s
-      timeout: 5s
-      retries: 18
-      start_period: 10m
-    depends_on:
-      mysql:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
-
-  review-service:
-    <<: *service-defaults
-    build:
-      context: ./review-service
-      dockerfile: Dockerfile
-    image: ${DOCKERHUB_USERNAME:-httpsharsh}/medibook-review-service:${IMAGE_TAG:-latest}
-    container_name: medibook-review
-    ports:
-      - "8086:8086"
-    environment:
-      <<: *spring-env
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/review_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      EUREKA_INSTANCE_HOSTNAME: review-service
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z -w 2 localhost 8086"]
-      interval: 10s
-      timeout: 5s
-      retries: 18
-      start_period: 10m
-    depends_on:
-      mysql:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
-
-  notification-service:
-    <<: *service-defaults
-    build:
-      context: ./notification-service
-      dockerfile: Dockerfile
-    image: ${DOCKERHUB_USERNAME:-httpsharsh}/medibook-notification-service:${IMAGE_TAG:-latest}
-    container_name: medibook-notification
-    ports:
-      - "8087:8087"
-    environment:
-      <<: *spring-env
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/notification_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_RABBITMQ_HOST: rabbitmq
-      EUREKA_INSTANCE_HOSTNAME: notification-service
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z -w 2 localhost 8087"]
-      interval: 10s
-      timeout: 5s
-      retries: 18
-      start_period: 10m
-    depends_on:
-      mysql:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
-
-  record-service:
-    <<: *service-defaults
-    build:
-      context: ./record-service
-      dockerfile: Dockerfile
-    image: ${DOCKERHUB_USERNAME:-httpsharsh}/medibook-record-service:${IMAGE_TAG:-latest}
-    container_name: medibook-record
-    ports:
-      - "8088:8088"
-    environment:
-      <<: *spring-env
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/record_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      EUREKA_INSTANCE_HOSTNAME: record-service
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z -w 2 localhost 8088"]
-      interval: 10s
-      timeout: 5s
-      retries: 18
-      start_period: 10m
-    depends_on:
-      mysql:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
-
+  # ── Admin Service ─────────────────────────────────────────────────────────────
   admin-service:
-    <<: *service-defaults
-    build:
-      context: ./admin-service
-      dockerfile: Dockerfile
-    image: ${DOCKERHUB_USERNAME:-httpsharsh}/medibook-admin-service:${IMAGE_TAG:-latest}
+    build: ./admin-service
     container_name: medibook-admin
     ports:
       - "8089:8089"
     environment:
-      <<: *spring-env
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/auth_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      EUREKA_INSTANCE_HOSTNAME: admin-service
-      ADMIN_PASSWORD_1: ${ADMIN_PASSWORD_1}
-      ADMIN_PASSWORD_2: ${ADMIN_PASSWORD_2}
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z -w 2 localhost 8089"]
-      interval: 10s
-      timeout: 5s
-      retries: 18
-      start_period: 10m
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/auth_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&autoReconnect=true&failOverReadOnly=false&maxReconnects=10
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:medibook123@eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_HOSTNAME=admin-service
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
+      - EUREKA_INSTANCE_INSTANCE_ID=admin-service:8089
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_PASSWORD_1=${ADMIN_PASSWORD_1}
+      - ADMIN_PASSWORD_2=${ADMIN_PASSWORD_2}
     depends_on:
       mysql:
         condition: service_healthy
       eureka-server:
         condition: service_healthy
 
+  # ── Provider Service ──────────────────────────────────────────────────────────
+  provider-service:
+    build: ./provider-service
+    container_name: medibook-provider
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/provider_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:medibook123@eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_HOSTNAME=provider-service
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
 
+  # ── Schedule Service ──────────────────────────────────────────────────────────
+  schedule-service:
+    build: ./schedule-service
+    container_name: medibook-schedule
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/schedule_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:medibook123@eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_HOSTNAME=schedule-service
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  # ── Appointment Service ───────────────────────────────────────────────────────
+  appointment-service:
+    build: ./appointment-service
+    container_name: medibook-appointment
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/appointment_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:medibook123@eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_HOSTNAME=appointment-service
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ── Payment Service ───────────────────────────────────────────────────────────
+  payment-service:
+    build: ./payment-service
+    container_name: medibook-payment
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/payment_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:medibook123@eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_HOSTNAME=payment-service
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
+      - JWT_SECRET=${JWT_SECRET}
+      - RAZORPAY_API_KEY=${RAZORPAY_API_KEY}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  # ── Review Service ────────────────────────────────────────────────────────────
+  review-service:
+    build: ./review-service
+    container_name: medibook-review
+    ports:
+      - "8086:8086"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/review_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:medibook123@eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_HOSTNAME=review-service
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  # ── Notification Service ──────────────────────────────────────────────────────
+  notification-service:
+    build: ./notification-service
+    container_name: medibook-notification
+    ports:
+      - "8087:8087"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/notification_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:medibook123@eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_HOSTNAME=notification-service
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ── Record Service ────────────────────────────────────────────────────────────
+  record-service:
+    build: ./record-service
+    container_name: medibook-record
+    ports:
+      - "8088:8088"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/record_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:medibook123@eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_HOSTNAME=record-service
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  # ── API Gateway ───────────────────────────────────────────────────────────────
+  api-gateway:
+    build: ./api-gateway
+    container_name: medibook-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://admin:medibook123@eureka-server:8761/eureka/
+      - EUREKA_INSTANCE_HOSTNAME=api-gateway
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
+      - JWT_SECRET=${JWT_SECRET}
+
+      - EUREKA_CLIENT_EUREKA_SERVER_CONNECT_TIMEOUT_SECONDS=30
+      - EUREKA_CLIENT_EUREKA_SERVER_READ_TIMEOUT_SECONDS=30
+      - EUREKA_CLIENT_REGISTRY_FETCH_INTERVAL_SECONDS=10
+      - EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS=30
+      - EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS=90
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
