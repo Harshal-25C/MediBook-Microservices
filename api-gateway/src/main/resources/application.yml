@@ -1,0 +1,98 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:5173"
+              - "http://localhost:5174"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+              - PATCH
+            allowedHeaders: "*"
+            allowCredentials: false
+            maxAge: 3600
+            exposedHeaders:
+              - Authorization
+
+      routes:
+        # ── AUTH SERVICE ─────────────────────────────────────────────
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/auth/**,/oauth2/**,/login/oauth2/**
+
+        # ── PROVIDER SERVICE ─────────────────────────────────────────
+        - id: provider-service
+          uri: lb://provider-service
+          predicates:
+            - Path=/providers/**
+
+        # ── SCHEDULE SERVICE ─────────────────────────────────────────────
+        - id: schedule-service
+          uri: lb://schedule-service
+          predicates:
+            - Path=/slots/**
+
+        # ── APPOINTMENT SERVICE ───────────────────────────────────────
+        - id: appointment-service
+          uri: lb://appointment-service
+          predicates:
+            - Path=/appointments/**
+
+        # ── PAYMENT SERVICE ───────────────────────────────────────────
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/payments/**
+
+        # ── REVIEW SERVICE ────────────────────────────────────────────
+        - id: review-service
+          uri: lb://review-service
+          predicates:
+            - Path=/reviews/**
+
+        # ── NOTIFICATION SERVICE ──────────────────────────────────────
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/notifications/**
+
+        # ── RECORD SERVICE ────────────────────────────────────────────
+        - id: record-service
+          uri: lb://record-service
+          predicates:
+            - Path=/records/**
+
+        # ── ADMIN SERVICE ─────────────────────────────────────────────
+        - id: admin-service
+          uri: lb://admin-service
+          predicates:
+            - Path=/admin/**
+
+# Eureka registration
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://admin:medibook123@localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+# JWT secret — must match auth-service
+jwt:
+  secret: ${JWT_SECRET}
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO

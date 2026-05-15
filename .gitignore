@@ -1,0 +1,8 @@
+/.metadata/
+
+# Environment files
+.env
+.sonarlint/
+
+# Spring profiles
+**/application-dev.yml

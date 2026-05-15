@@ -1,0 +1,56 @@
+server:
+  port: 8089
+
+spring:
+  application:
+    name: admin-service
+
+  # ── Shared auth_db (same DB as auth-service so admins can log in via /auth/login) ──
+  datasource:
+    url: jdbc:mysql://localhost:3306/auth_db?createDatabaseIfNotExist=true
+    username: ${DB_USERNAME:medibook_user}
+    password: ${DB_PASSWORD:medibook_pass}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+# ── Pre-configured admins (seeded automatically at startup) ─────────────────
+# Add as many admins as you want under this list.
+# The service will auto-register each one if they don't already exist in the DB.
+app:
+  admins:
+    - fullName: Harshal Choudhary
+      email: harshalchoudhary340@gmail.com
+      password: ${ADMIN_PASSWORD_1}
+
+    - fullName: Anvii Patil
+      email: obsidian.neoharshal@gmail.com
+      password: ${ADMIN_PASSWORD_2}
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000}   # 24 hours in ms
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://admin:medibook123@localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+    hostname: localhost
+    instance-id: ${spring.application.name}:${server.port}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    try-it-out-enabled: true
+  api-docs:
+    path: /api-docs

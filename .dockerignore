@@ -1,0 +1,21 @@
+# Exclude build output from ALL services — prevents massive context uploads
+**/target/
+
+# Exclude IDE and OS files
+**/.idea/
+**/.vscode/
+**/*.iml
+**/.DS_Store
+**/Thumbs.db
+
+# Exclude git
+.git/
+.gitignore
+
+# Exclude docs (not needed for build)
+docs/
+scripts/
+README.md
+
+# Exclude test reports
+**/surefire-reports/
