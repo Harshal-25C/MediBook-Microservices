@@ -6,6 +6,7 @@ import com.medibook.otp.service.OtpService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
@@ -27,6 +28,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     @Autowired
     private OtpService otpService;
 
+    @Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
+
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
                                         HttpServletResponse response,
@@ -44,7 +48,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             // Email OTP only for Google users (no phone required)
             otpService.generateAndSendOtp(email);
 
-            String redirectUrl = "http://localhost:5173/otp"
+            String redirectUrl = frontendUrl + "/otp"
                     + "?email=" + URLEncoder.encode(email, StandardCharsets.UTF_8)
                     + "&name="  + URLEncoder.encode(existingUser.getFullName(), StandardCharsets.UTF_8)
                     + "&source=google";
@@ -53,7 +57,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
         } else {
             // ── NEW GOOGLE USER → select role first, OTP after role picked ──
-            String redirectUrl = "http://localhost:5173/oauth2/select-role"
+            String redirectUrl = frontendUrl + "/oauth2/select-role"
                     + "?email="   + URLEncoder.encode(email, StandardCharsets.UTF_8)
                     + "&name="    + URLEncoder.encode(name, StandardCharsets.UTF_8)
                     + "&picture=" + URLEncoder.encode(picture != null ? picture : "", StandardCharsets.UTF_8)

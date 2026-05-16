@@ -8,6 +8,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
@@ -63,34 +64,11 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
-        String method = request.getMethod().name();
+        HttpMethod method = request.getMethod();
         
         // Allow CORS preflight requests
-        if ("OPTIONS".equalsIgnoreCase(method)) {
-
-            exchange.getResponse().getHeaders().add(
-                "Access-Control-Allow-Origin",
-                "https://medibook-client-beryl.vercel.app"
-            );
-
-            exchange.getResponse().getHeaders().add(
-                "Access-Control-Allow-Methods",
-                "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-            );
-
-            exchange.getResponse().getHeaders().add(
-                "Access-Control-Allow-Headers",
-                "Authorization, Content-Type, Accept, Origin, X-Requested-With"
-            );
-
-            exchange.getResponse().getHeaders().add(
-                "Access-Control-Max-Age",
-                "3600"
-            );
-
-            exchange.getResponse().setStatusCode(HttpStatus.OK);
-
-            return exchange.getResponse().setComplete();
+        if (HttpMethod.OPTIONS.equals(method)) {
+            return chain.filter(exchange);
         }
 
         // Allow all public paths without token
@@ -121,7 +99,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         }
     }
 
-    private boolean isPublic(String path, String method) {
+    private boolean isPublic(String path, HttpMethod method) {
         // Exact match for public POST paths
         for (String pub : PUBLIC_PATHS) {
             if (path.equals(pub)) return true;
@@ -131,7 +109,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             if (path.startsWith(prefix)) return true;
         }
         // GET /providers (root) is also public
-        if (path.equals("/providers") && method.equals("GET")) return true;
+        if (path.equals("/providers") && HttpMethod.GET.equals(method)) return true;
         return false;
     }
 

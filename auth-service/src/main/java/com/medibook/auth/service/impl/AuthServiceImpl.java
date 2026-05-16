@@ -3,6 +3,7 @@ package com.medibook.auth.service.impl;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -46,6 +47,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private JavaMailSender mailSender;
+
+    @Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
     
     // ✅ FIXED — declare once as a class field at the top of AuthServiceImpl
     // Add this as a field in the class (with other @Autowired fields):
@@ -317,7 +321,7 @@ public class AuthServiceImpl implements AuthService {
         passwordResetTokenRepository.save(resetToken);
 
         // Build reset link
-        String resetLink = "http://localhost:5173/reset-password?token=" + token;
+        String resetLink = frontendUrl + "/reset-password?token=" + token;
 
         // ── Send email ─────────────────────────────────────────────────
         try {

@@ -49,6 +49,7 @@ spring:
             redirect-uri: "https://medibook-microservices.duckdns.org/login/oauth2/code/google"
 
 app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
   admin:
     secret:
       code: AdminSecret2024!
