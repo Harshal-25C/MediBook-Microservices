@@ -67,7 +67,24 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         
         // Allow CORS preflight requests
         if ("OPTIONS".equalsIgnoreCase(method)) {
+
+            exchange.getResponse().getHeaders().add(
+                "Access-Control-Allow-Origin",
+                "https://medibook-client-beryl.vercel.app"
+            );
+
+            exchange.getResponse().getHeaders().add(
+                "Access-Control-Allow-Methods",
+                "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            );
+
+            exchange.getResponse().getHeaders().add(
+                "Access-Control-Allow-Headers",
+                "*"
+            );
+
             exchange.getResponse().setStatusCode(HttpStatus.OK);
+
             return exchange.getResponse().setComplete();
         }
 
