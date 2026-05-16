@@ -80,7 +80,12 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
             exchange.getResponse().getHeaders().add(
                 "Access-Control-Allow-Headers",
-                "*"
+                "Authorization, Content-Type, Accept, Origin, X-Requested-With"
+            );
+
+            exchange.getResponse().getHeaders().add(
+                "Access-Control-Max-Age",
+                "3600"
             );
 
             exchange.getResponse().setStatusCode(HttpStatus.OK);
