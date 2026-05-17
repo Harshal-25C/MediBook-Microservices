@@ -62,12 +62,11 @@ public class AuthResource {
         if (!user.getRole().equals("Admin")
                 && (user.getPhone() == null || user.getPhone().trim().isEmpty())
                 && user.getProvider() == null) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of(
+            return ResponseEntity.ok(Map.of(
                         "message", "Phone number required",
                         "requiresPhone", true,
                         "email", request.getEmail()
-                    ));
+            ));
         }
 
         authService.sendOtp(request.getEmail());
