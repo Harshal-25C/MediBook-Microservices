@@ -1,6 +1,10 @@
 server:
   port: 8081
   forward-headers-strategy: framework
+  tomcat:
+    remoteip:
+      protocol-header: x-forwarded-proto
+      remote-ip-header: x-forwarded-for
 
 spring:
   application:
