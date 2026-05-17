@@ -51,6 +51,8 @@ services:
   auth-service:
     build: ./auth-service
     container_name: medibook-auth
+    env_file:
+      - .env
     ports:
       - "8081:8081"
     environment:
@@ -67,6 +69,7 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
       - FRONTEND_URL=${FRONTEND_URL}
     depends_on:
       mysql:

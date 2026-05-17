@@ -62,16 +62,20 @@ public class AuthResource {
         if (!user.getRole().equals("Admin")
                 && (user.getPhone() == null || user.getPhone().trim().isEmpty())
                 && user.getProvider() == null) {
-            return ResponseEntity.ok(Map.of(
+            return ResponseEntity.ok()
+                    .header("X-MediBook-Login-Flow", "requires-phone")
+                    .body(Map.of(
                         "message", "Phone number required",
                         "requiresPhone", true,
                         "email", request.getEmail()
-            ));
+                    ));
         }
 
         authService.sendOtp(request.getEmail());
 
-        return ResponseEntity.ok(Map.of(
+        return ResponseEntity.ok()
+                .header("X-MediBook-Login-Flow", "otp-sent")
+                .body(Map.of(
                 "otpSent", true,
                 "email", request.getEmail(),
                 "message", "OTP sent to your email"
