@@ -52,7 +52,7 @@ public class SecurityConfig {
              * the browser receives two Access-Control-Allow-Origin headers
              * and rejects the response entirely.
              */
-            .cors(cors -> {})
+            .cors(cors -> cors.disable())
 
             /*
              * Disable default form login page.
