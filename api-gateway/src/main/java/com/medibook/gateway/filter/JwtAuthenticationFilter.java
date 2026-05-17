@@ -70,7 +70,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         if (HttpMethod.OPTIONS.equals(method)) {
             return chain.filter(exchange);
         }
-
+        System.out.println("PATH = " + path);
         // Allow all public paths without token
         if (isPublic(path, method)) {
             return chain.filter(exchange);
@@ -101,9 +101,11 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     private boolean isPublic(String path, HttpMethod method) {
         // Exact match for public POST paths
-        for (String pub : PUBLIC_PATHS) {
-            if (path.equals(pub)) return true;
-        }
+    	for (String pub : PUBLIC_PATHS) {
+    	    if (path.startsWith(pub)) {
+    	        return true;
+    	    }
+    	}
         // Prefix match
         for (String prefix : PUBLIC_PREFIXES) {
             if (path.startsWith(prefix)) return true;
