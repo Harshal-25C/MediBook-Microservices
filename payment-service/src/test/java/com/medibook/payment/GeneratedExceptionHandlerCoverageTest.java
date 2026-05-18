@@ -12,6 +12,7 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
@@ -57,6 +58,9 @@ class GeneratedExceptionHandlerCoverageTest {
         if (Throwable.class.isAssignableFrom(type)) {
             if (type == Exception.class) return new Exception("boom");
             if (type == RuntimeException.class) return new RuntimeException("boom");
+            if (type.getName().equals("org.springframework.web.servlet.resource.NoResourceFoundException")) {
+                return type.getConstructor(HttpMethod.class, String.class).newInstance(HttpMethod.GET, "/missing");
+            }
             for (Constructor<?> ctor : type.getDeclaredConstructors()) {
                 ctor.setAccessible(true);
                 Class<?>[] params = ctor.getParameterTypes();

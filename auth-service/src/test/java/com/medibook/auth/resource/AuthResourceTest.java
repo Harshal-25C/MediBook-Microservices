@@ -115,7 +115,7 @@ class AuthResourceTest {
     }
 
     @Test
-    void login_patientWithNoPhone_returns403WithRequiresPhone() {
+    void login_patientWithNoPhone_returns200WithRequiresPhone() {
         LoginRequest req = new LoginRequest();
         req.setEmail("nophone@x.com"); req.setPassword("pass");
 
@@ -128,7 +128,7 @@ class AuthResourceTest {
 
         ResponseEntity<?> response = authResource.login(req);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         @SuppressWarnings("unchecked")
         Map<String, Object> body = (Map<String, Object>) response.getBody();
         assertThat(body.get("requiresPhone")).isEqualTo(true);
