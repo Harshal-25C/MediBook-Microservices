@@ -13,7 +13,7 @@ pipeline {
         }
         stage('Build Docker Images') {
             steps {
-                sh 'docker compose build'
+                sh 'docker-compose build'
             }
         }
         stage('Docker Login') {
@@ -32,7 +32,7 @@ pipeline {
         }
         stage('Push Images') {
             steps {
-                sh 'docker compose push'
+                sh 'docker-compose push'
             }
         }
         stage('Deploy EC2') {
@@ -41,8 +41,8 @@ pipeline {
                     sh '''
                     ssh -o StrictHostKeyChecking=no ubuntu@YOUR_EC2_IP << EOF
                     cd ~/MediBook-Microservices
-                    docker compose pull
-                    docker compose up -d
+                    docker-compose pull
+                    docker-compose up -d
                     EOF
                     '''
                 }
