@@ -60,11 +60,12 @@ pipeline {
             steps {
                 sshagent(['ec2-key']) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=no ubuntu@YOUR_EC2_IP '
-                            cd ~/MediBook-Microservices
-                            docker-compose pull
-                            docker-compose up -d
-                        '
+                        ssh -o StrictHostKeyChecking=no ubuntu@YOUR_EC2_IP \
+                        "cd ~/MediBook-Microservices && \
+                        git pull origin main && \
+                        cp ~/.env .env && \
+                        docker-compose pull && \
+                        docker-compose up -d --remove-orphans"
                     '''
                 }
             }
