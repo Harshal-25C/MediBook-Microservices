@@ -60,7 +60,7 @@ pipeline {
             steps {
                 sshagent(['ec2-key']) {
                     sh '''
-                        ssh -o StrictHostKeyChecking=no ubuntu@YOUR_EC2_IP \
+                        ssh -o StrictHostKeyChecking=no ubuntu@13.60.223.73 \
                         "cd ~/MediBook-Microservices && \
                         git pull origin main && \
                         cp ~/.env .env && \
