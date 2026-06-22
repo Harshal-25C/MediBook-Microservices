@@ -11,6 +11,11 @@ pipeline {
                 url: 'https://github.com/Harshal-25C/MediBook-Microservices.git'
             }
         }
+        stage('Cleanup') {
+            steps {
+                sh 'docker system prune -af --volumes || true'
+            }
+        }
 
         stage('Prepare ENV') {
             steps {
@@ -49,7 +54,6 @@ pipeline {
                 sh '''
                     services="eureka-server api-gateway auth-service admin-service provider-service schedule-service appointment-service payment-service review-service notification-service record-service"
                     for svc in $services; do
-                        docker tag medibook-cicd-${svc}:latest ${DOCKERHUB}/${svc}:${IMAGE_TAG}
                         docker push ${DOCKERHUB}/${svc}:${IMAGE_TAG}
                     done
                 '''
