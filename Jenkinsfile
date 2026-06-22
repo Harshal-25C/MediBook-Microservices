@@ -11,6 +11,11 @@ pipeline {
                 url: 'https://github.com/Harshal-25C/MediBook-Microservices.git'
             }
         }
+        stage('Build JARs') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+            }
+        }
         stage('Build Docker Images') {
             steps {
                 sh 'docker-compose build'
